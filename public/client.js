@@ -584,7 +584,7 @@
             var pivotCenter = myCharacter.position.clone();
             pivotCenter.y += 1.0;
             
-            var worldPos = camRig.localToWorld(localOffset);
+            camRig.updateMatrixWorld(true); var worldPos = camRig.localToWorld(localOffset);
             if (worldPos.y < 0.3) worldPos.y = 0.3;
             camera.position.lerp(worldPos, 0.25);
             camera.lookAt(pivotCenter.x, pivotCenter.y, pivotCenter.z);
