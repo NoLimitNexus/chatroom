@@ -185,6 +185,9 @@
         // Position pelvis at correct height (legs are ~0.9 total)
         pelvis.position.y = 0.9;
 
+        // Store direct refs like Unified Workspace bodyParts.*
+        group.userData.bp = { pelvis: pelvis, torso: torso, head: head, legL: legL, legR: legR, armL: armL, armR: armR };
+
         return group;
     }
 
@@ -476,55 +479,57 @@
                 if (mesh.userData.leftEye) mesh.userData.leftEye.position.z = 0.3 + Math.min(speedStr * 0.2, 0.5) * 0.175;
                 if (mesh.userData.rightEye) mesh.userData.rightEye.position.z = 0.3 + Math.min(speedStr * 0.2, 0.5) * 0.175;
             }
-        } else if (charType === 'modular') {
-            var pelvis = mesh.children.find(function(c) { return c.name === 'pelvis'; });
-            if (pelvis) {
-                var torso = pelvis.children.find(function(c) { return c.name === 'torso'; });
-                var legs = pelvis.children.filter(function(c) { return c.name === 'limb'; });
-                var legL = legs[0], legR = legs[1];
-                var arms = torso ? torso.children.filter(function(c) { return c.name === 'limb'; }) : [];
-                var armL = arms[0], armR = arms[1];
+        } else if (charType === 'modular' && mesh.userData.bp) {
+            // Use direct refs stored at build time (like Unified Workspace bodyParts.*)
+            var bp = mesh.userData.bp;
+            var pelvis = bp.pelvis, torso = bp.torso, head = bp.head;
+            var legL = bp.legL, legR = bp.legR, armL = bp.armL, armR = bp.armR;
 
-                if (isMoving && legL && legR && armL && armR && torso) {
-                    var speed = isSprinting ? 14 : 8;
-                    var amp = isSprinting ? 0.9 : 0.5;
-                    var phase = t * speed;
-                    legL.rotation.x = Math.sin(phase) * amp;
-                    legR.rotation.x = Math.sin(phase + Math.PI) * amp;
-                    if (legL.calf) legL.calf.rotation.x = Math.max(0, Math.sin(phase - 1.2)) * amp * 2.2;
-                    if (legR.calf) legR.calf.rotation.x = Math.max(0, Math.sin(phase + Math.PI - 1.2)) * amp * 2.2;
-                    armL.rotation.x = Math.sin(phase + Math.PI) * amp;
-                    armR.rotation.x = Math.sin(phase) * amp;
-                    
-                    if (jumpTime < 0) {
-                        var bobAmt = isSprinting ? 0.12 : 0.05;
-                        pelvis.position.y = 0.9 + (Math.cos(phase * 2) * -0.5 + 0.5) * bobAmt;
-                    }
-                    torso.rotation.x = isSprinting ? 0.3 : 0.05;
-                    torso.rotation.y = Math.sin(phase) * 0.15;
-                    
-                    if (legL.foot) legL.foot.rotation.x = -(legL.rotation.x + legL.calf.rotation.x);
-                    if (legR.foot) legR.foot.rotation.x = -(legR.rotation.x + legR.calf.rotation.x);
-                } else if (pelvis && torso && armL && armR) {
-                    var breath = Math.sin(t * 2);
-                    torso.scale.y = 1.0 + breath * 0.012;
-                    armL.rotation.z = 0.15 + breath * 0.02;
-                    armR.rotation.z = -0.15 - breath * 0.02;
-                    pelvis.position.y = 0.9;
-                    legL.rotation.x = 0; legR.rotation.x = 0;
-                    if (legL.calf) legL.calf.rotation.x = 0; if (legR.calf) legR.calf.rotation.x = 0;
-                    if (legL.foot) legL.foot.rotation.x = 0; if (legR.foot) legR.foot.rotation.x = 0;
-                    armL.rotation.x = 0; armR.rotation.x = 0;
-                    torso.rotation.x = 0; torso.rotation.y = 0;
-                }
+            // --- EXACT resetPose from Unified Workspace ---
+            pelvis.position.y = 0.9;
+            pelvis.position.z = 0;
+            torso.rotation.x = 0; torso.rotation.y = 0; torso.scale.y = 1.0;
+            if (head) { head.rotation.x = 0; head.rotation.y = 0; }
+            legL.rotation.x = 0; legR.rotation.x = 0;
+            legL.calf.rotation.x = 0; legR.calf.rotation.x = 0;
+            legL.foot.rotation.x = 0; legR.foot.rotation.x = 0;
+            armL.rotation.x = 0; armL.rotation.z = 0;
+            armR.rotation.x = 0; armR.rotation.z = 0;
 
-                if (jumpTime >= 0) {
-                    var jumpH = Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
-                    if (legL && legR) {
-                        legL.rotation.x = -0.4 * jumpH;
-                        legR.rotation.x = -0.4 * jumpH;
-                    }
+            // --- EXACT walk/run animation from Unified Workspace (line 2582-2604) ---
+            if (isMoving) {
+                var speed = isSprinting ? 14 : 8;
+                var amp = isSprinting ? 0.9 : 0.5;
+                var phase = t * speed;
+                legL.rotation.x += Math.sin(phase) * amp;
+                legR.rotation.x += Math.sin(phase + Math.PI) * amp;
+                legL.calf.rotation.x += Math.max(0, Math.sin(phase - 1.2)) * amp * 2.2;
+                legR.calf.rotation.x += Math.max(0, Math.sin(phase + Math.PI - 1.2)) * amp * 2.2;
+                armL.rotation.x = Math.sin(phase + Math.PI) * amp;
+                armR.rotation.x = Math.sin(phase) * amp;
+
+                if (jumpTime < 0) {
+                    var bobAmt = isSprinting ? 0.12 : 0.05;
+                    pelvis.position.y += (Math.cos(phase * 2) * -0.5 + 0.5) * bobAmt;
                 }
+                torso.rotation.x += isSprinting ? 0.3 : 0.05;
+                torso.rotation.y = Math.sin(phase) * 0.15;
+            } else {
+                // --- EXACT idle from Unified Workspace (line 2699-2703) ---
+                var breath = Math.sin(t * 2);
+                torso.scale.y = 1.0 + breath * 0.012;
+                armL.rotation.z = 0.15 + breath * 0.02;
+                armR.rotation.z = -0.15 - breath * 0.02;
+            }
+
+            // --- EXACT flat feet from Unified Workspace (line 2602-2604) ---
+            legL.foot.rotation.x = -(legL.rotation.x + legL.calf.rotation.x);
+            legR.foot.rotation.x = -(legR.rotation.x + legR.calf.rotation.x);
+
+            // --- EXACT jump from Unified Workspace (line 2572-2580) ---
+            if (jumpTime >= 0) {
+                legL.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
+                legR.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
             }
         }
     }
@@ -582,29 +587,18 @@
             animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.jumpTime, t, delta, Math.hypot(localVx, localVz));
 
             // --- EXACT upper body aiming from Unified Workspace (line 2729-2750) ---
-            if (selectedChar === 'modular') {
-                var pelvis = myCharacter.children[0];
-                if (pelvis && pelvis.name === 'pelvis') {
-                    var torso = null, head = null;
-                    for (var ci = 0; ci < pelvis.children.length; ci++) {
-                        if (pelvis.children[ci].name === 'torso') torso = pelvis.children[ci];
-                    }
-                    if (torso) {
-                        for (var ci2 = 0; ci2 < torso.children.length; ci2++) {
-                            if (torso.children[ci2].name === 'head') head = torso.children[ci2];
-                        }
-                        // Camera-relative upper body twist
-                        var yawDiff = state.camYaw - myCharacter.rotation.y;
-                        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-                        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-                        var maxTwist = Math.PI * 0.5;
-                        var twist = Math.max(-maxTwist, Math.min(maxTwist, yawDiff));
-                        torso.rotation.y += twist * 0.4;
-                        if (head) head.rotation.y = twist * 0.6;
-                        torso.rotation.x += state.camPitch * 0.2;
-                        if (head) head.rotation.x += state.camPitch * 0.4;
-                    }
-                }
+            if (selectedChar === 'modular' && myCharacter.userData.bp) {
+                var ubp = myCharacter.userData.bp;
+                // Camera-relative upper body twist
+                var yawDiff = state.camYaw - myCharacter.rotation.y;
+                while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+                while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+                var maxTwist = Math.PI * 0.5;
+                var twist = Math.max(-maxTwist, Math.min(maxTwist, yawDiff));
+                ubp.torso.rotation.y += twist * 0.4;
+                if (ubp.head) ubp.head.rotation.y = twist * 0.6;
+                ubp.torso.rotation.x += state.camPitch * 0.2;
+                if (ubp.head) ubp.head.rotation.x += state.camPitch * 0.4;
             }
 
             // --- EXACT camera rig from Unified Workspace (line 2511-2526) ---
