@@ -20,7 +20,7 @@ io.on('connection', (socket) => {
     // Create player with default state
     players[socket.id] = {
         x: Math.random() * 20 - 10,
-        y: 1,
+        y: 0,
         z: Math.random() * 20 - 10,
         color: Math.floor(Math.random() * 0xffffff),
         username: 'Guest_' + Math.floor(Math.random() * 1000),
@@ -57,7 +57,12 @@ io.on('connection', (socket) => {
                 x: movementData.x, 
                 y: movementData.y,
                 z: movementData.z,
-                ry: movementData.ry
+                ry: movementData.ry,
+                isMoving: movementData.isMoving,
+                isSprinting: movementData.isSprinting,
+                jumpTime: movementData.jumpTime,
+                localVx: movementData.localVx,
+                localVz: movementData.localVz
             });
         }
     });
