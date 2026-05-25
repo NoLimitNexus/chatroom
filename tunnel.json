@@ -1,0 +1,37 @@
+{
+  "config": {
+    "ingress": [
+      {
+        "service": "http://192.168.50.141:8090",
+        "hostname": "pb.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:8181",
+        "hostname": "tautulli.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:5055",
+        "hostname": "requests.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3003",
+        "hostname": "dashboard-api.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3000",
+        "hostname": "chatroom.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http_status:404"
+      }
+    ],
+    "warp-routing": {
+      "enabled": false
+    }
+  }
+}

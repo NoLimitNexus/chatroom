@@ -4,7 +4,10 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: { origin: '*' },
+    transports: ['websocket', 'polling']
+});
 
 app.use(express.static('public'));
 
@@ -14,48 +17,67 @@ const players = {};
 io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
     
-    // Create new player object
+    // Create player with default state
     players[socket.id] = {
-        x: Math.random() * 600 + 100, // Random starting X
-        y: Math.random() * 400 + 100, // Random starting Y
-        color: `hsl(${Math.random() * 360}, 70%, 50%)`, // Random color
-        username: 'Guest_' + Math.floor(Math.random() * 1000)
+        x: Math.random() * 20 - 10,
+        y: 1,
+        z: Math.random() * 20 - 10,
+        color: Math.floor(Math.random() * 0xffffff),
+        username: 'Guest_' + Math.floor(Math.random() * 1000),
+        charType: 'modular' // default character type
     };
 
-    // Send the current players to the new player
-    socket.emit('currentPlayers', players);
-    
-    // Tell everyone else a new player joined
-    socket.broadcast.emit('newPlayer', { id: socket.id, player: players[socket.id] });
+    // Handle join (client sends username + character type)
+    socket.on('join', (data) => {
+        if (players[socket.id]) {
+            // Support both old string format and new object format
+            if (typeof data === 'string') {
+                players[socket.id].username = data;
+            } else {
+                players[socket.id].username = data.username;
+                players[socket.id].charType = data.charType || 'modular';
+            }
+        }
+        // Send back all current players + this player's id
+        socket.emit('init', { id: socket.id, players: players });
+        // Tell everyone else about the new player
+        socket.broadcast.emit('playerJoined', { id: socket.id, ...players[socket.id] });
+        console.log(`${players[socket.id].username} joined as ${players[socket.id].charType}`);
+    });
 
     // Handle movement
     socket.on('playerMovement', (movementData) => {
         if (players[socket.id]) {
             players[socket.id].x = movementData.x;
             players[socket.id].y = movementData.y;
-            // Broadcast to everyone else
-            socket.broadcast.emit('playerMoved', { id: socket.id, x: movementData.x, y: movementData.y });
+            players[socket.id].z = movementData.z;
+            players[socket.id].ry = movementData.ry;
+            socket.broadcast.emit('playerMoved', { 
+                id: socket.id, 
+                x: movementData.x, 
+                y: movementData.y,
+                z: movementData.z,
+                ry: movementData.ry
+            });
         }
     });
 
     // Handle chat
     socket.on('chatMessage', (message) => {
-        io.emit('newChatMessage', { id: socket.id, username: players[socket.id].username, message: message });
-    });
-
-    // Handle username change
-    socket.on('updateUsername', (newUsername) => {
         if (players[socket.id]) {
-            players[socket.id].username = newUsername;
-            io.emit('usernameUpdated', { id: socket.id, username: newUsername });
+            io.emit('chatMessage', { 
+                username: players[socket.id].username, 
+                message: message,
+                color: players[socket.id].color
+            });
         }
     });
 
     // Handle disconnect
     socket.on('disconnect', () => {
         console.log(`Player disconnected: ${socket.id}`);
+        io.emit('playerLeft', socket.id);
         delete players[socket.id];
-        io.emit('playerDisconnected', socket.id);
     });
 });
 

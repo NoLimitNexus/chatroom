@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steam Chatroom Pre-Alpha</title>
+    <title>3D Chatroom - NLN</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="game-container">
-        <!-- Canvas for the game world -->
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
-        
-        <!-- UI Overlay -->
         <div id="ui-layer">
+            <div id="crosshair">+</div>
             <div id="chat-box">
                 <div id="chat-messages"></div>
                 <div id="chat-input-container">
@@ -20,16 +18,34 @@
                 </div>
             </div>
             <div id="login-panel">
-                <h2>Join Chatroom</h2>
-                <input type="text" id="username-input" placeholder="Enter username">
-                <button id="join-btn">Join</button>
+                <div id="login-step-1">
+                    <h2>JOIN 3D CHATROOM</h2>
+                    <input type="text" id="username-input" placeholder="Enter username" maxlength="16">
+                    <button id="next-btn">NEXT →</button>
+                </div>
+                <div id="login-step-2" style="display:none;">
+                    <h2>CHOOSE YOUR CHARACTER</h2>
+                    <div id="char-select">
+                        <div class="char-option selected" data-char="modular">
+                            <div class="char-preview" id="preview-modular"></div>
+                            <div class="char-name">MODULAR MAN</div>
+                            <div class="char-desc">Articulated action figure with segmented limbs and a visor</div>
+                        </div>
+                        <div class="char-option" data-char="goop">
+                            <div class="char-preview" id="preview-goop"></div>
+                            <div class="char-name">THE GOOP</div>
+                            <div class="char-desc">Translucent slime creature with glowing eyes</div>
+                        </div>
+                    </div>
+                    <button id="join-btn">JOIN GAME</button>
+                    <button id="back-btn">← BACK</button>
+                </div>
             </div>
         </div>
     </div>
-    
-    <!-- Load Socket.io client script -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <!-- Load our game logic -->
-    <script src="client.js"></script>
+    <script src="client.js?v=6"></script>
 </body>
 </html>

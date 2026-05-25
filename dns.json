@@ -1,0 +1,7 @@
+{
+  "type": "CNAME",
+  "name": "chatroom",
+  "content": "e0abc422-0676-49ac-bb18-db7eedb24ee3.cfargotunnel.com",
+  "ttl": 1,
+  "proxied": true
+}
