@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Chatroom Pre-Alpha</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Canvas for the game world -->
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- UI Overlay -->
+        <div id="ui-layer">
+            <div id="chat-box">
+                <div id="chat-messages"></div>
+                <div id="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="Type a message and press Enter..." autocomplete="off">
+                </div>
+            </div>
+            <div id="login-panel">
+                <h2>Join Chatroom</h2>
+                <input type="text" id="username-input" placeholder="Enter username">
+                <button id="join-btn">Join</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load Socket.io client script -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Load our game logic -->
+    <script src="client.js"></script>
+</body>
+</html>
