@@ -535,23 +535,30 @@
         var time = performance.now(), delta = Math.min((time - prevTime) / 1000, 0.1), t = time * 0.001;
         
         if (isLocked && myCharacter) {
-            var moveZ = (keys['KeyW'] || keys['ArrowUp'] ? 1 : 0) - (keys['KeyS'] || keys['ArrowDown'] ? 1 : 0);
-            var moveX = (keys['KeyA'] || keys['ArrowLeft'] ? 1 : 0) - (keys['KeyD'] || keys['ArrowRight'] ? 1 : 0);
+            // --- EXACT input from Unified Workspace (line 2469-2470) ---
+            var moveZ = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
+            var moveX = (keys['KeyA'] ? 1 : 0) - (keys['KeyD'] ? 1 : 0);
             var isMoving = Math.abs(moveZ) > 0 || Math.abs(moveX) > 0;
             var isSprinting = keys['ShiftLeft'] || keys['ShiftRight'];
 
             var localVx = 0, localVz = 0;
             if (isMoving) {
-                var speed = (isSprinting ? 12.0 : 5.0) * delta;
+                // --- EXACT speed from Unified Workspace (line 2476) ---
+                var speed = isSprinting ? 0.22 : 0.1;
+
+                // --- EXACT direction calc from Unified Workspace (line 2478-2479) ---
                 var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
                 direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
-                myCharacter.position.addScaledVector(direction, speed);
-                
+
+                // --- EXACT rotation from Unified Workspace (line 2481-2486) ---
                 var targetYaw = Math.atan2(direction.x, direction.z);
                 var diff = targetYaw - myCharacter.rotation.y;
                 while (diff < -Math.PI) diff += Math.PI * 2;
                 while (diff > Math.PI) diff -= Math.PI * 2;
                 myCharacter.rotation.y += diff * 12 * delta;
+
+                // --- EXACT movement from Unified Workspace (line 2487) ---
+                myCharacter.position.addScaledVector(direction, speed);
                 
                 var moveLen = Math.hypot(moveX, moveZ);
                 var charSpeed = isSprinting ? 1.0 : 0.5;
@@ -562,10 +569,11 @@
                 myCharacter.children[0].rotation.z *= 0.9;
             }
 
+            // --- EXACT jump from Unified Workspace (line 2572-2580) ---
             if (state.jumpTime >= 0) {
-                state.jumpTime += delta * 2.5; 
+                state.jumpTime += delta * 2.5;
                 var jumpH = Math.sin(Math.min(state.jumpTime, 1) * Math.PI) * 1.3;
-                myCharacter.position.y = state.baseY + Math.max(0, jumpH);
+                myCharacter.position.y = (state.baseY || 0) + Math.max(0, jumpH);
                 if (state.jumpTime >= 1.0) state.jumpTime = -1;
             } else {
                 myCharacter.position.y = state.baseY;
@@ -573,21 +581,50 @@
 
             animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.jumpTime, t, delta, Math.hypot(localVx, localVz));
 
+            // --- EXACT upper body aiming from Unified Workspace (line 2729-2750) ---
+            if (selectedChar === 'modular') {
+                var pelvis = myCharacter.children[0];
+                if (pelvis && pelvis.name === 'pelvis') {
+                    var torso = null, head = null;
+                    for (var ci = 0; ci < pelvis.children.length; ci++) {
+                        if (pelvis.children[ci].name === 'torso') torso = pelvis.children[ci];
+                    }
+                    if (torso) {
+                        for (var ci2 = 0; ci2 < torso.children.length; ci2++) {
+                            if (torso.children[ci2].name === 'head') head = torso.children[ci2];
+                        }
+                        // Camera-relative upper body twist
+                        var yawDiff = state.camYaw - myCharacter.rotation.y;
+                        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+                        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+                        var maxTwist = Math.PI * 0.5;
+                        var twist = Math.max(-maxTwist, Math.min(maxTwist, yawDiff));
+                        torso.rotation.y += twist * 0.4;
+                        if (head) head.rotation.y = twist * 0.6;
+                        torso.rotation.x += state.camPitch * 0.2;
+                        if (head) head.rotation.x += state.camPitch * 0.4;
+                    }
+                }
+            }
+
+            // --- EXACT camera rig from Unified Workspace (line 2511-2526) ---
             state.currentCamSide += (state.camSide - state.currentCamSide) * 10 * delta;
-            
+
             var pivotOffset = new THREE.Vector3(0.6 * state.currentCamSide, 2.0, 0);
             pivotOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
             camRig.position.copy(myCharacter.position).add(pivotOffset);
             camRig.rotation.set(state.camPitch, state.camYaw, 0, 'YXZ');
-            
+
+            // -Z keeps camera behind the character (since +Z is forward movement direction)
             var localOffset = new THREE.Vector3(0, 0, -3.5 * state.camZoom);
-            var pivotCenter = myCharacter.position.clone();
-            pivotCenter.y += 1.0;
-            
-            camRig.updateMatrixWorld(true); var worldPos = camRig.localToWorld(localOffset);
+            camRig.updateMatrixWorld(true);
+            var worldPos = camRig.localToWorld(localOffset);
             if (worldPos.y < 0.3) worldPos.y = 0.3;
             camera.position.lerp(worldPos, 0.25);
-            camera.lookAt(pivotCenter.x, pivotCenter.y, pivotCenter.z);
+
+            // +Z faces camera strictly outward (EXACT from Unified Workspace line 2525-2526)
+            var lookTgt = camRig.localToWorld(new THREE.Vector3(0, 0, 100));
+            camera.lookAt(lookTgt);
 
             socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz });
         }
