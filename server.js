@@ -63,8 +63,24 @@ io.on('connection', (socket) => {
                 isCrouching: movementData.isCrouching,
                 jumpTime: movementData.jumpTime,
                 localVx: movementData.localVx,
-                localVz: movementData.localVz
+                localVz: movementData.localVz,
+                inventory: movementData.inventory,
+                camPitch: movementData.camPitch
             });
+        }
+    });
+
+    // Handle shooting
+    socket.on('playerShoot', (data) => {
+        if (players[socket.id]) {
+            socket.broadcast.emit('playerShoot', { id: socket.id });
+        }
+    });
+
+    // Handle hit
+    socket.on('playerHit', (data) => {
+        if (players[socket.id]) {
+            socket.broadcast.emit('playerHit', { id: data.id, shooterId: socket.id });
         }
     });
 

@@ -34,8 +34,46 @@
         jumpTime: -1,
         isCrouching: false,
         legs: 1.0,
-        baseY: 0
+        baseY: 0,
+        inventory: 1,
+        shootTime: 0,
+        tracers: []
     };
+
+    var wheelState = { open: false, selection: -1, mouseX: 0, mouseY: 0 };
+
+    function openWeaponWheel() {
+        wheelState.open = true;
+        wheelState.mouseX = 0;
+        wheelState.mouseY = 0;
+        wheelState.selection = -1;
+        document.getElementById('weapon-wheel').classList.add('active');
+        updateWheelHighlight();
+    }
+
+    function closeWeaponWheel() {
+        wheelState.open = false;
+        document.getElementById('weapon-wheel').classList.remove('active');
+        if (wheelState.selection >= 0) state.inventory = wheelState.selection;
+        document.querySelectorAll('.wheel-item').forEach(el => el.classList.remove('highlighted'));
+    }
+
+    function updateWheelHighlight() {
+        const dist = Math.sqrt(wheelState.mouseX * wheelState.mouseX + wheelState.mouseY * wheelState.mouseY);
+        if (dist < 20) wheelState.selection = -1;
+        else {
+            const angle = Math.atan2(wheelState.mouseX, -wheelState.mouseY);
+            let deg = angle * (180 / Math.PI);
+            if (deg >= -45 && deg < 45) wheelState.selection = 0;
+            else if (deg >= 45 && deg <= 135) wheelState.selection = 1;
+            else if (deg > 135 || deg < -135) wheelState.selection = 2;
+            else wheelState.selection = 3;
+        }
+        for (let i = 0; i < 4; i++) {
+            const el = document.getElementById('wheel-' + i);
+            if (el) el.classList.toggle('highlighted', i === wheelState.selection);
+        }
+    }
 
     // Character select UI
     document.querySelectorAll('.char-option').forEach(function(el) {
@@ -183,11 +221,25 @@
         armR.position.set(-0.19, 0.40, 0);
         torso.add(armR);
 
+        // WEAPONS
+        var weaponsMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.6 });
+        var gun = new THREE.Group();
+        gun.position.set(0, -0.05, 0);
+        var barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.05), weaponsMat);
+        barrel.position.set(0, -0.1, 0.05);
+        barrel.castShadow = true;
+        var grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.12), weaponsMat);
+        grip.position.set(0, 0, -0.02);
+        grip.castShadow = true;
+        gun.add(barrel); gun.add(grip);
+        gun.visible = true;
+        armR.hand.add(gun);
+
         // Position pelvis at correct height (legs are ~0.9 total)
         pelvis.position.y = 0.9;
 
         // Store direct refs like Unified Workspace bodyParts.*
-        group.userData.bp = { pelvis: pelvis, torso: torso, head: head, legL: legL, legR: legR, armL: armL, armR: armR };
+        group.userData.bp = { pelvis: pelvis, torso: torso, head: head, legL: legL, legR: legR, armL: armL, armR: armR, gun: gun };
 
         return group;
     }
@@ -252,10 +304,62 @@
         rightEye.position.set(0.14, 0.15, 0.3);
         blobMesh.add(rightEye);
 
-        group.add(blobMesh);
+        // Invisible skeleton groups (EXACT from Unified Workspace Character.js)
+        var pelvis = new THREE.Group();
+        pelvis.add(blobMesh);
+        group.add(pelvis);
+
+        var torso = new THREE.Group();
+        var head = new THREE.Group();
+        var legL = new THREE.Group();
+        var legR = new THREE.Group();
+        pelvis.add(torso);
+        pelvis.add(legL);
+        pelvis.add(legR);
+
+        legL.calf = new THREE.Group();
+        legR.calf = new THREE.Group();
+        legL.foot = new THREE.Group();
+        legR.foot = new THREE.Group();
+        legL.add(legL.calf);
+        legL.calf.add(legL.foot);
+        legR.add(legR.calf);
+        legR.calf.add(legR.foot);
+
+        var armL = new THREE.Group();
+        armL.position.set(0.4, 0.35, 0);
+        pelvis.add(armL);
+        var armR = new THREE.Group();
+        armR.position.set(-0.4, 0.35, 0);
+        pelvis.add(armR);
+
+        armL.lower = new THREE.Group();
+        armR.lower = new THREE.Group();
+        armL.add(armL.lower);
+        armR.add(armR.lower);
+        armL.hand = new THREE.Group();
+        armL.lower.add(armL.hand);
+        armR.hand = new THREE.Group();
+        armR.lower.add(armR.hand);
+
+        // WEAPON — gun on armR.hand (EXACT from Unified Workspace Character.js)
+        var weaponsMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.6 });
+        var gun = new THREE.Group();
+        gun.position.set(0, -0.05, 0);
+        var barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.05), weaponsMat);
+        barrel.position.set(0, -0.1, 0.05);
+        barrel.castShadow = true;
+        var grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.12), weaponsMat);
+        grip.position.set(0, 0, -0.02);
+        grip.castShadow = true;
+        gun.add(barrel); gun.add(grip);
+        gun.visible = true;
+        armR.hand.add(gun);
+
         group.userData.blob = blobMesh;
         group.userData.leftEye = leftEye;
         group.userData.rightEye = rightEye;
+        group.userData.bp = { pelvis: pelvis, torso: torso, head: head, legL: legL, legR: legR, armL: armL, armR: armR, gun: gun };
 
         return group;
     }
@@ -347,10 +451,120 @@
     });
     document.addEventListener('mousemove', function (e) {
         if (!isLocked || !myCharacter) return;
-        state.camYaw -= (e.movementX || 0) * 0.003;
-        state.camPitch += (e.movementY || 0) * 0.003;
-        state.camPitch = Math.max(-1.0, Math.min(1.2, state.camPitch));
+        if (wheelState.open) {
+            wheelState.mouseX += e.movementX;
+            wheelState.mouseY += e.movementY;
+            updateWheelHighlight();
+        } else {
+            state.camYaw -= (e.movementX || 0) * 0.003;
+            state.camPitch += (e.movementY || 0) * 0.003;
+            state.camPitch = Math.max(-1.0, Math.min(1.2, state.camPitch));
+        }
     });
+
+    let audioCtx;
+    let precomputedNoiseBuffer;
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const bufferSize = Math.floor(audioCtx.sampleRate * 0.2);
+            precomputedNoiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = precomputedNoiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playGunshot() {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = precomputedNoiseBuffer;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = 6000;
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+        gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+
+        osc.start(audioCtx.currentTime);
+        noise.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.15);
+        noise.stop(audioCtx.currentTime + 0.2);
+    }
+
+    function shootGun(shooterObj, isLocal) {
+        if (!shooterObj) return;
+        const bp = shooterObj.userData.bp;
+        
+        if (isLocal) state.shootTime = 0.15;
+        if (!isLocal && shooterObj.userData) shooterObj.userData.shootTime = 0.15;
+
+        // Muzzle flash
+        const flashGeo = new THREE.PlaneGeometry(0.4, 0.4);
+        const flashMat = new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+        const flash1 = new THREE.Mesh(flashGeo, flashMat);
+        const flash2 = new THREE.Mesh(flashGeo, flashMat);
+        flash2.rotation.y = Math.PI / 2;
+        const flash = new THREE.Group();
+        flash.add(flash1); flash.add(flash2);
+
+        flash.position.set(0, -0.28, 0.05);
+        flash.rotation.x = -Math.PI / 2;
+        flash.rotation.y = Math.random() * Math.PI;
+        if (bp && bp.gun) bp.gun.add(flash);
+        else if (shooterObj.userData.rightEye) {
+            flash.position.set(0, 0, 0.1);
+            shooterObj.userData.rightEye.add(flash);
+        }
+
+        setTimeout(() => {
+            if (bp && bp.gun && flash) bp.gun.remove(flash);
+            else if (shooterObj.userData.rightEye && flash) shooterObj.userData.rightEye.remove(flash);
+            flashGeo.dispose(); flashMat.dispose();
+        }, 50);
+
+        // Tracer
+        const tracerGeo = new THREE.CylinderGeometry(0.015, 0.015, 4.0);
+        tracerGeo.rotateX(Math.PI / 2);
+        const tracer = new THREE.Mesh(tracerGeo, new THREE.MeshBasicMaterial({ color: 0xffffee, transparent: true, opacity: 0.8 }));
+        scene.add(tracer);
+
+        const startPos = new THREE.Vector3();
+        if (bp && bp.gun) bp.gun.localToWorld(startPos.set(0, -0.25, 0.05));
+        else if (shooterObj.userData.rightEye) shooterObj.userData.rightEye.localToWorld(startPos.set(0, 0, 0.2));
+        
+        let aimTgt = new THREE.Vector3();
+        if (isLocal) {
+            camRig.localToWorld(aimTgt.set(0, 0, 100));
+        } else {
+            aimTgt = startPos.clone().add(new THREE.Vector3(0, 0, 100).applyAxisAngle(new THREE.Vector3(0,1,0), shooterObj.rotation.y));
+        }
+
+        tracer.position.copy(startPos);
+        tracer.lookAt(aimTgt);
+
+        const velocity = aimTgt.clone().sub(startPos).normalize().multiplyScalar(120);
+        state.tracers.push({ mesh: tracer, v: velocity, life: 1.0, shooterId: isLocal ? myId : (shooterObj.userData.id || null) });
+    }
 
     var prevTime = performance.now();
 
@@ -368,6 +582,16 @@
         if (isPlaying && document.activeElement !== chatInput && !isLocked) renderer.domElement.requestPointerLock();
     });
 
+    document.addEventListener('mousedown', function (e) {
+        if (!isLocked || !myCharacter) return;
+        if (e.button === 0 && state.inventory === 1) { // Left click to shoot
+            if (state.shootTime <= 0) {
+                shootGun(myCharacter, true);
+                socket.emit('playerShoot', { id: myId });
+            }
+        }
+    });
+
     // Keys
     document.addEventListener('keydown', function (e) {
         if (document.activeElement === chatInput || !isPlaying) return;
@@ -375,9 +599,11 @@
         if (e.code === 'Space' && state.jumpTime < 0) state.jumpTime = 0;
         if (e.code === 'KeyC') state.isCrouching = !state.isCrouching;
         if (e.code === 'KeyX' && !e.repeat) state.camSide *= -1;
+        if (e.code === 'KeyQ' && !e.repeat) openWeaponWheel();
     });
     document.addEventListener('keyup', function (e) {
         keys[e.code] = false;
+        if (e.code === 'KeyQ' && wheelState.open) closeWeaponWheel();
     });
     window.addEventListener('wheel', function(e) {
         if (!isLocked) return;
@@ -393,16 +619,18 @@
         }
     });
     function addChatMessage(username, message, color) {
-        var el = document.createElement('div'); el.style.marginBottom = '5px';
+        var el = document.createElement('div');
+        el.className = 'chat-msg';
         var hex = '#' + color.toString(16).padStart(6, '0');
-        el.innerHTML = '<strong style="color:' + hex + '">' + username + ':</strong> ' + message;
-        chatMessages.appendChild(el); chatMessages.scrollTop = chatMessages.scrollHeight;
+        el.innerHTML = '<span class="chat-username" style="color:' + hex + '">' + username + ':</span> ' + message;
+        chatMessages.appendChild(el);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     // Socket Events
     socket.on('init', function (data) {
         myId = data.id;
-        loginPanel.style.display = 'none'; chatBox.style.display = 'flex'; isPlaying = true;
+        loginPanel.style.display = 'none'; chatBox.style.display = 'block'; isPlaying = true;
         var me = data.players[myId];
         
         myCharacter = (selectedChar === 'goop') ? buildGoop() : buildModularMan();
@@ -438,6 +666,19 @@
             players[d.id].jumpTime = d.jumpTime;
             players[d.id].localVx = d.localVx;
             players[d.id].localVz = d.localVz;
+            players[d.id].userData.inventory = d.inventory;
+            players[d.id].userData.camPitch = d.camPitch;
+        }
+    });
+    socket.on('playerShoot', function (d) {
+        if (players[d.id]) {
+            shootGun(players[d.id].mesh, false);
+        }
+    });
+    socket.on('playerHit', function (d) {
+        if (d.shooterId === myId) {
+            crosshair.classList.add('hit');
+            setTimeout(() => { crosshair.classList.remove('hit'); }, 150);
         }
     });
     socket.on('chatMessage', function (d) { addChatMessage(d.username, d.message, d.color); });
@@ -450,10 +691,15 @@
         var tag = document.createElement('div'); tag.textContent = data.username;
         tag.style.cssText = 'position:absolute;color:white;background:rgba(0,0,0,.6);padding:3px 8px;border-radius:4px;pointer-events:none;font:600 11px Inter,sans-serif;transform:translate(-50%,-50%);white-space:nowrap;';
         document.getElementById('ui-layer').appendChild(tag);
+        data.id = id;
+        data.inventory = 1;
         players[id] = { mesh: mesh, nametag: tag, targetPos: new THREE.Vector3(data.x, data.y, data.z), targetRy: data.ry || 0, userData: data, charType: charType };
     }
 
-    function animateCharacter(mesh, charType, isMoving, isSprinting, isCrouching, jumpTime, t, delta, speedStr) {
+    function animateCharacter(mesh, charType, isMoving, isSprinting, isCrouching, jumpTime, t, delta, speedStr, inventory, shootTime, camPitch) {
+        inventory = inventory || 0;
+        camPitch = camPitch || 0;
+        shootTime = shootTime || 0;
         if (charType === 'goop' && mesh.userData.blob) {
             var blob = mesh.userData.blob;
             var stretchMod = speedStr * 0.4;
@@ -482,6 +728,26 @@
                 if (mesh.userData.leftEye) mesh.userData.leftEye.position.z = 0.3 + Math.min(speedStr * 0.2, 0.5) * 0.175;
                 if (mesh.userData.rightEye) mesh.userData.rightEye.position.z = 0.3 + Math.min(speedStr * 0.2, 0.5) * 0.175;
             }
+
+            // Gun visibility + aiming for Goop (EXACT from Unified Workspace main.js line 666-677)
+            if (mesh.userData.bp && mesh.userData.bp.gun) {
+                var goopBp = mesh.userData.bp;
+                goopBp.gun.visible = (inventory === 1);
+
+                if (inventory === 1) {
+                    goopBp.armR.rotation.x = -Math.PI / 2 + camPitch;
+                    if (shootTime > 0) {
+                        goopBp.armR.rotation.x -= Math.sin((shootTime / 0.15) * Math.PI) * 0.4;
+                    }
+                    goopBp.armR.rotation.z = -0.05;
+                    goopBp.armR.rotation.y = 0.2;
+
+                    goopBp.armL.rotation.x = -0.8 + camPitch;
+                    goopBp.armL.lower.rotation.x = -0.9;
+                    goopBp.armL.rotation.z = 0.25;
+                    goopBp.armL.rotation.y = -0.1;
+                }
+            }
         } else if (charType === 'modular' && mesh.userData.bp) {
             // Use direct refs stored at build time (like Unified Workspace bodyParts.*)
             var bp = mesh.userData.bp;
@@ -496,22 +762,29 @@
             legL.rotation.x = 0; legR.rotation.x = 0;
             legL.calf.rotation.x = 0; legR.calf.rotation.x = 0;
             legL.foot.rotation.x = 0; legR.foot.rotation.x = 0;
-            armL.rotation.x = 0; armL.rotation.z = 0;
-            armR.rotation.x = 0; armR.rotation.z = 0;
+            armL.rotation.x = 0; armL.rotation.z = 0; armL.lower.rotation.x = 0;
+            armR.rotation.x = 0; armR.rotation.z = 0; armR.lower.rotation.x = 0;
 
-            var r = 0, i = 0;
+            let thighRot = 0;
+            let calfRot = 0;
             if (isCrouching) {
-                r = -1.2; i = 1.9;
-                legL.rotation.x = r; legR.rotation.x = r;
-                legL.calf.rotation.x = i; legR.calf.rotation.x = i;
+                thighRot = -1.2;
+                calfRot = 1.9;
+                
+                legL.rotation.x = thighRot;
+                legR.rotation.x = thighRot;
+                legL.calf.rotation.x = calfRot;
+                legR.calf.rotation.x = calfRot;
+                
                 torso.rotation.x = -0.4;
-                armL.rotation.x = 0.6; armR.rotation.x = 0.6;
+                armL.rotation.x = 0.6;
+                armR.rotation.x = 0.6;
             }
 
-            var a = 0.45 * (state.legs || 1.0);
-            var o = 0.09 * (state.legs || 1.0);
-            var s = a * Math.cos(r) + a * Math.cos(r + i) + o;
-            pelvis.position.y = s;
+            const legH = 0.45 * (state.legs || 1.0);
+            const footH = 0.09 * (state.legs || 1.0);
+            const currentPelvisY = legH * Math.cos(thighRot) + legH * Math.cos(thighRot + calfRot) + footH;
+            pelvis.position.y = currentPelvisY;
 
             // --- EXACT walk/run animation from Unified Workspace (line 2582-2604) ---
             if (isMoving) {
@@ -547,6 +820,29 @@
             if (jumpTime >= 0) {
                 legL.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
                 legR.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
+            }
+
+            // Weapon visibility
+            if (bp.gun) {
+                bp.gun.visible = (inventory === 1);
+            }
+
+            // --- ARC RAIDERS UPPER BODY AIMING ---
+            let appliedTorsoPitch = camPitch * 0.2;
+            
+            // Aiming Inventory Overrides
+            if (inventory === 1) { // Gun
+                armR.rotation.x = -Math.PI / 2 + (camPitch - appliedTorsoPitch);
+                if (shootTime > 0) {
+                    armR.rotation.x -= Math.sin((shootTime / 0.15) * Math.PI) * 0.4;
+                }
+                armR.rotation.z = -0.05;
+                armR.rotation.y = 0.2;
+
+                armL.rotation.x = -0.8 + (camPitch - appliedTorsoPitch); // Lower, tucked support hand
+                armL.lower.rotation.x = -0.9;  // Elbow bent, hand near chest
+                armL.rotation.z = 0.25;  // Kept close to body
+                armL.rotation.y = -0.1;
             }
         }
     }
@@ -601,7 +897,8 @@
                 myCharacter.position.y = state.baseY;
             }
 
-            animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.isCrouching, state.jumpTime, t, delta, Math.hypot(localVx, localVz));
+            if (state.shootTime > 0) state.shootTime -= delta;
+            animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.isCrouching, state.jumpTime, t, delta, Math.hypot(localVx, localVz), state.inventory, Math.max(0, state.shootTime), state.camPitch);
 
             // --- EXACT upper body aiming from Unified Workspace (line 2729-2750) ---
             if (selectedChar === 'modular' && myCharacter.userData.bp) {
@@ -637,7 +934,29 @@
             var lookTgt = camRig.localToWorld(new THREE.Vector3(0, 0, 100));
             camera.lookAt(lookTgt);
 
-            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz });
+            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz, inventory: state.inventory, camPitch: state.camPitch });
+        }
+
+        for (var i = state.tracers.length - 1; i >= 0; i--) {
+            var tObj = state.tracers[i];
+            tObj.life -= delta;
+            if (tObj.life <= 0) {
+                scene.remove(tObj.mesh);
+                tObj.mesh.geometry.dispose();
+                tObj.mesh.material.dispose();
+                state.tracers.splice(i, 1);
+            } else {
+                tObj.mesh.position.addScaledVector(tObj.v, delta);
+                if (tObj.shooterId === myId) {
+                    for (var pid in players) {
+                        if (players[pid].mesh.position.distanceTo(tObj.mesh.position) < 1.0) {
+                            socket.emit('playerHit', { id: pid });
+                            tObj.life = 0;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         for (var id in players) {
@@ -658,7 +977,8 @@
                 p.mesh.children[0].rotation.z *= 0.9;
             }
 
-            animateCharacter(p.mesh, p.charType, p.isMoving, p.isSprinting, p.isCrouching || false, p.jumpTime || -1, t, delta, Math.hypot(p.localVx || 0, p.localVz || 0));
+            if (p.userData && p.userData.shootTime > 0) p.userData.shootTime -= delta;
+            animateCharacter(p.mesh, p.charType, p.isMoving, p.isSprinting, p.isCrouching || false, p.jumpTime || -1, t, delta, Math.hypot(p.localVx || 0, p.localVz || 0), p.userData.inventory || 1, Math.max(0, p.userData.shootTime || 0), p.userData.camPitch || 0);
 
             var vec = p.mesh.position.clone();
             vec.y += (p.charType === 'goop') ? 1.0 : 1.8;
