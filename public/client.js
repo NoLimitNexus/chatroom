@@ -32,6 +32,7 @@
         camSide: 1,
         currentCamSide: 1,
         jumpTime: -1,
+        isCrouching: false,
         legs: 1.0,
         baseY: 0
     };
@@ -372,6 +373,7 @@
         if (document.activeElement === chatInput || !isPlaying) return;
         keys[e.code] = true;
         if (e.code === 'Space' && state.jumpTime < 0) state.jumpTime = 0;
+        if (e.code === 'KeyC') state.isCrouching = !state.isCrouching;
         if (e.code === 'KeyX' && !e.repeat) state.camSide *= -1;
     });
     document.addEventListener('keyup', function (e) {
@@ -432,6 +434,7 @@
             players[d.id].targetRy = d.ry;
             players[d.id].isMoving = d.isMoving;
             players[d.id].isSprinting = d.isSprinting;
+            players[d.id].isCrouching = d.isCrouching;
             players[d.id].jumpTime = d.jumpTime;
             players[d.id].localVx = d.localVx;
             players[d.id].localVz = d.localVz;
@@ -450,7 +453,7 @@
         players[id] = { mesh: mesh, nametag: tag, targetPos: new THREE.Vector3(data.x, data.y, data.z), targetRy: data.ry || 0, userData: data, charType: charType };
     }
 
-    function animateCharacter(mesh, charType, isMoving, isSprinting, jumpTime, t, delta, speedStr) {
+    function animateCharacter(mesh, charType, isMoving, isSprinting, isCrouching, jumpTime, t, delta, speedStr) {
         if (charType === 'goop' && mesh.userData.blob) {
             var blob = mesh.userData.blob;
             var stretchMod = speedStr * 0.4;
@@ -495,6 +498,20 @@
             legL.foot.rotation.x = 0; legR.foot.rotation.x = 0;
             armL.rotation.x = 0; armL.rotation.z = 0;
             armR.rotation.x = 0; armR.rotation.z = 0;
+
+            var r = 0, i = 0;
+            if (isCrouching) {
+                r = -1.2; i = 1.9;
+                legL.rotation.x = r; legR.rotation.x = r;
+                legL.calf.rotation.x = i; legR.calf.rotation.x = i;
+                torso.rotation.x = -0.4;
+                armL.rotation.x = 0.6; armR.rotation.x = 0.6;
+            }
+
+            var a = 0.45 * (state.legs || 1.0);
+            var o = 0.09 * (state.legs || 1.0);
+            var s = a * Math.cos(r) + a * Math.cos(r + i) + o;
+            pelvis.position.y = s;
 
             // --- EXACT walk/run animation from Unified Workspace (line 2582-2604) ---
             if (isMoving) {
@@ -584,7 +601,7 @@
                 myCharacter.position.y = state.baseY;
             }
 
-            animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.jumpTime, t, delta, Math.hypot(localVx, localVz));
+            animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.isCrouching, state.jumpTime, t, delta, Math.hypot(localVx, localVz));
 
             // --- EXACT upper body aiming from Unified Workspace (line 2729-2750) ---
             if (selectedChar === 'modular' && myCharacter.userData.bp) {
@@ -620,7 +637,7 @@
             var lookTgt = camRig.localToWorld(new THREE.Vector3(0, 0, 100));
             camera.lookAt(lookTgt);
 
-            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz });
+            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz });
         }
 
         for (var id in players) {
@@ -641,7 +658,7 @@
                 p.mesh.children[0].rotation.z *= 0.9;
             }
 
-            animateCharacter(p.mesh, p.charType, p.isMoving, p.isSprinting, p.jumpTime || -1, t, delta, Math.hypot(p.localVx || 0, p.localVz || 0));
+            animateCharacter(p.mesh, p.charType, p.isMoving, p.isSprinting, p.isCrouching || false, p.jumpTime || -1, t, delta, Math.hypot(p.localVx || 0, p.localVz || 0));
 
             var vec = p.mesh.position.clone();
             vec.y += (p.charType === 'goop') ? 1.0 : 1.8;

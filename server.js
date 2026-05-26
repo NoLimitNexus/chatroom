@@ -60,6 +60,7 @@ io.on('connection', (socket) => {
                 ry: movementData.ry,
                 isMoving: movementData.isMoving,
                 isSprinting: movementData.isSprinting,
+                isCrouching: movementData.isCrouching,
                 jumpTime: movementData.jumpTime,
                 localVx: movementData.localVx,
                 localVz: movementData.localVz
