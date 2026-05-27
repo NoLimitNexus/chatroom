@@ -641,6 +641,8 @@
     // Pointer Lock & Marching Panel
     var PI_2 = Math.PI / 2;
     var mPanel = document.getElementById('marching-panel');
+    var dPanel = document.getElementById('debug-panel');
+    var toggleFBX = document.getElementById('toggleFBX');
     var resSlider = document.getElementById('resSlider');
     var resVal = document.getElementById('resVal');
     var isoSlider = document.getElementById('isoSlider');
@@ -664,6 +666,20 @@
         });
     }
 
+    if (toggleFBX) {
+        toggleFBX.addEventListener('change', function() {
+            if (myCharacter) {
+                myCharacter.userData.useFBX = this.checked;
+                if (this.checked && fbxLoaded) {
+                    if (!myCharacter.userData.fbxModel) setupPlayerFBX(myCharacter);
+                    else bindPlayerBones(myCharacter);
+                } else if (!this.checked && myCharacter.userData.fbxModel) {
+                    unbindPlayerBones(myCharacter);
+                }
+            }
+        });
+    }
+
     document.addEventListener('pointerlockchange', function () {
         isLocked = (document.pointerLockElement === renderer.domElement);
         crosshair.style.display = isLocked ? 'block' : 'none';
@@ -671,6 +687,9 @@
         
         if (mPanel) {
             mPanel.style.display = (!isLocked && isPlaying && selectedChar === 'goop') ? 'block' : 'none';
+        }
+        if (dPanel) {
+            dPanel.style.display = (!isLocked && isPlaying && selectedChar === 'modular') ? 'block' : 'none';
         }
     });
     document.addEventListener('mousemove', function (e) {
