@@ -36,25 +36,9 @@
                 <div id="login-step-1">
                     <h2>JOIN 3D CHATROOM</h2>
                     <input type="text" id="username-input" placeholder="Enter username" maxlength="16">
-                    <button id="next-btn">NEXT →</button>
+                    <button id="next-btn">JOIN GAME</button>
                 </div>
-                <div id="login-step-2" style="display:none;">
-                    <h2>CHOOSE YOUR CHARACTER</h2>
-                    <div id="char-select">
-                        <div class="char-option selected" data-char="modular">
-                            <div class="char-preview" id="preview-modular"></div>
-                            <div class="char-name">MODULAR MAN</div>
-                            <div class="char-desc">Articulated action figure with segmented limbs and a visor</div>
-                        </div>
-                        <div class="char-option" data-char="goop">
-                            <div class="char-preview" id="preview-goop"></div>
-                            <div class="char-name">THE GOOP</div>
-                            <div class="char-desc">Original bouncing translucent slime creature</div>
-                        </div>
-                    </div>
-                    <button id="join-btn">JOIN GAME</button>
-                    <button id="back-btn">← BACK</button>
-                </div>
+
             </div>
         </div>
     </div>
@@ -69,6 +53,7 @@
     <script src="https://nolimitnexus.github.io/3D-Unified-Workspace/shared-environment.js"></script>
     <script src="https://nolimitnexus.github.io/3D-Unified-Workspace/shared-characters.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="ripples.js"></script>
     <script src="client.js?v=15"></script>
 </body>
 </html>

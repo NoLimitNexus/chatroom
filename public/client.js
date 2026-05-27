@@ -9,15 +9,13 @@
     var step2 = document.getElementById('login-step-2');
     var usernameInput = document.getElementById('username-input');
     var nextBtn = document.getElementById('next-btn');
-    var backBtn = document.getElementById('back-btn');
-    var joinBtn = document.getElementById('join-btn');
     var chatBox = document.getElementById('chat-box');
     var chatInput = document.getElementById('chat-input');
     var chatMessages = document.getElementById('chat-messages');
     var crosshair = document.getElementById('crosshair');
     var container = document.getElementById('game-container');
 
-    var selectedChar = 'modular';
+    var selectedChar = 'goop';
     var isPlaying = false;
     var myId = null;
     var players = {};
@@ -75,20 +73,11 @@
         }
     }
 
-    // Character select UI
-    document.querySelectorAll('.char-option').forEach(function(el) {
-        el.addEventListener('click', function() {
-            document.querySelectorAll('.char-option').forEach(function(o){ o.classList.remove('selected'); });
-            el.classList.add('selected');
-            selectedChar = el.dataset.char;
-        });
-    });
     nextBtn.addEventListener('click', function() {
         if (!usernameInput.value.trim()) { usernameInput.style.borderColor = '#ef4444'; return; }
-        step1.style.display = 'none'; step2.style.display = 'block';
-        initCharPreviews();
+        var username = usernameInput.value.trim();
+        socket.emit('join', { username: username, charType: 'goop' });
     });
-    backBtn.addEventListener('click', function() { step2.style.display = 'none'; step1.style.display = 'block'; });
     usernameInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') nextBtn.click(); });
     usernameInput.addEventListener('input', function() { usernameInput.style.borderColor = 'rgba(255,255,255,0.1)'; });
 
@@ -281,6 +270,9 @@
     // Environment, lighting, and terrain are now handled by shared-environment.js
     if (window.setupSharedEnvironment) {
         window.setupSharedEnvironment(scene, renderer, camera);
+        if (window.RippleWater && window.sharedWater) {
+            window.RippleWater.init(renderer, window.sharedWater);
+        }
     }
 
     function getTerrainHeight(x, z) {
@@ -484,11 +476,7 @@
         camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Join
-    joinBtn.addEventListener('click', function () {
-        var username = usernameInput.value.trim();
-        if (username) socket.emit('join', { username: username, charType: selectedChar });
-    });
+    // Join listener removed, handled by next-btn
     document.addEventListener('click', function (e) {
         if (isPlaying && document.activeElement !== chatInput && !isLocked) renderer.domElement.requestPointerLock();
     });
@@ -630,6 +618,9 @@
         if (window.sharedWater) {
             window.sharedWater.material.uniforms['time'].value += delta;
         }
+        if (window.RippleWater) {
+            window.RippleWater.update(renderer);
+        }
         if (window.sharedClouds) {
             window.sharedClouds.rotation.y += 0.0005;
         }
@@ -658,6 +649,10 @@
 
                 // --- EXACT movement from Unified Workspace (line 2487) ---
                 myCharacter.position.addScaledVector(direction, speed);
+                
+                if (myCharacter.position.y < -0.8 && window.RippleWater) {
+                    window.RippleWater.addDrop(renderer, myCharacter.position.x, myCharacter.position.z, 2.0, 0.15);
+                }
                 
                 var moveLen = Math.hypot(moveX, moveZ);
                 var charSpeed = isSprinting ? 1.0 : 0.5;
@@ -753,6 +748,10 @@
             p.mesh.position.x += (p.targetPos.x - p.mesh.position.x) * 0.1;
             p.mesh.position.z += (p.targetPos.z - p.mesh.position.z) * 0.1;
             p.mesh.position.y += (p.targetPos.y - p.mesh.position.y) * 0.2;
+            
+            if (p.isMoving && p.mesh.position.y < -0.8 && window.RippleWater) {
+                window.RippleWater.addDrop(renderer, p.mesh.position.x, p.mesh.position.z, 2.0, 0.15);
+            }
             
             if (p.targetRy !== undefined) {
                 var diff = p.targetRy - p.mesh.rotation.y;
