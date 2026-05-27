@@ -409,7 +409,8 @@
     function shootGun(shooterObj, isLocal) {
         if (!shooterObj) return;
         const bp = shooterObj.userData.bp;
-        
+        const inv = shooterObj.userData.inventory !== undefined ? shooterObj.userData.inventory : state.inventory;
+        if (inv !== 1) return; // Only spawn bullets/flash if using a gun
         if (isLocal) state.shootTime = 0.15;
         if (!isLocal && shooterObj.userData) shooterObj.userData.shootTime = 0.15;
 
@@ -422,11 +423,19 @@
         const flash = new THREE.Group();
         flash.add(flash1); flash.add(flash2);
 
-        flash.position.set(0, -0.28, 0.05);
-        flash.rotation.x = -Math.PI / 2;
-        flash.rotation.y = Math.random() * Math.PI;
-        if (bp && bp.gun) bp.gun.add(flash);
-        else if (shooterObj.userData.rightEye) {
+        const gunObj = (bp && bp.gun) ? bp.gun : (shooterObj.userData.gun ? shooterObj.userData.gun : null);
+
+        if (gunObj) {
+            if (shooterObj.userData.blob) { // Goop blob floating gun
+                flash.position.set(0, 0, 0.35); // At tip of forward-facing barrel (+Z)
+                flash.rotation.x = 0;
+            } else {
+                flash.position.set(0, -0.28, 0.05); // At tip of downward-facing barrel (-Y)
+                flash.rotation.x = -Math.PI / 2;
+            }
+            flash.rotation.y = Math.random() * Math.PI;
+            gunObj.add(flash);
+        } else if (shooterObj.userData.rightEye) {
             flash.position.set(0, 0, 0.1);
             shooterObj.userData.rightEye.add(flash);
         }
@@ -444,8 +453,15 @@
         scene.add(tracer);
 
         const startPos = new THREE.Vector3();
-        if (bp && bp.gun) bp.gun.localToWorld(startPos.set(0, -0.25, 0.05));
-        else if (shooterObj.userData.rightEye) shooterObj.userData.rightEye.localToWorld(startPos.set(0, 0, 0.2));
+        if (gunObj) {
+            if (shooterObj.userData.blob) {
+                gunObj.localToWorld(startPos.set(0, 0, 0.35));
+            } else {
+                gunObj.localToWorld(startPos.set(0, -0.25, 0.05));
+            }
+        } else if (shooterObj.userData.rightEye) {
+            shooterObj.userData.rightEye.localToWorld(startPos.set(0, 0, 0.2));
+        }
         
         let aimTgt = new THREE.Vector3();
         if (isLocal) {
@@ -479,9 +495,10 @@
 
     document.addEventListener('mousedown', function (e) {
         if (!isLocked || !myCharacter) return;
-        if (e.button === 0 && state.inventory === 1) { // Left click to shoot
+        if (e.button === 0 && (state.inventory === 1 || state.inventory === 2)) { // Left click
             if (state.shootTime <= 0) {
-                shootGun(myCharacter, true);
+                if (state.inventory === 1) shootGun(myCharacter, true);
+                else state.shootTime = 0.15; // Swing axe
                 socket.emit('playerShoot', { id: myId });
             }
         }
@@ -576,7 +593,9 @@
     });
     socket.on('playerShoot', function (d) {
         if (players[d.id]) {
-            shootGun(players[d.id].mesh, false);
+            const inv = players[d.id].userData.inventory !== undefined ? players[d.id].userData.inventory : 0;
+            if (inv === 1) shootGun(players[d.id].mesh, false);
+            else players[d.id].userData.shootTime = 0.15;
         }
     });
     socket.on('playerHit', function (d) {
