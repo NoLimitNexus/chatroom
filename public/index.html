@@ -23,6 +23,12 @@
                     <input type="text" id="chat-input" placeholder="Type a message and press Enter..." autocomplete="off">
                 </div>
             </div>
+            <div id="marching-panel" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; padding:10px; border-radius:5px; font-family:sans-serif; font-size:12px; pointer-events:auto; z-index:100; display:none;">
+                <label>Resolution: <span id="resVal">48</span></label><br>
+                <input type="range" id="resSlider" min="16" max="64" value="48" step="4"><br>
+                <label>Isolation: <span id="isoVal">80</span></label><br>
+                <input type="range" id="isoSlider" min="10" max="200" value="80" step="1"><br>
+            </div>
             <div id="login-panel">
                 <div id="login-step-1">
                     <h2>JOIN 3D CHATROOM</h2>
@@ -51,6 +57,10 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/objects/MarchingCubes.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="client.js?v=10"></script>
 </body>

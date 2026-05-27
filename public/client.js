@@ -93,6 +93,129 @@
     usernameInput.addEventListener('input', function() { usernameInput.style.borderColor = 'rgba(255,255,255,0.1)'; });
 
     // ============================================================
+    // FBX ANIMATION & BONE BINDING
+    // ============================================================
+    var globalFBXModel = null;
+    var globalFBXAnimations = { idle: null, walk: null, run: null };
+    var fbxLoaded = false;
+
+    function loadMixamoRig() {
+        var loader = new THREE.FBXLoader();
+        loader.load('assets/models/T-Pose.fbx', function(object) {
+            object.scale.set(0.012, 0.012, 0.012);
+            object.traverse(function(child) {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    child.material = new THREE.MeshStandardMaterial({
+                        color: 0x3b82f6, roughness: 0.6, metalness: 0.2
+                    });
+                    child.visible = false; // We just want the bones
+                }
+            });
+            globalFBXModel = object;
+
+            var animLoader = new THREE.FBXLoader();
+            var loadedAnims = 0;
+            function checkDone() {
+                loadedAnims++;
+                if (loadedAnims === 3) {
+                    fbxLoaded = true;
+                    console.log('All FBX animations loaded.');
+                }
+            }
+            animLoader.load('assets/animations/idle.fbx', function(anim) { globalFBXAnimations.idle = anim.animations[0]; checkDone(); });
+            animLoader.load('assets/animations/walk.fbx', function(anim) { globalFBXAnimations.walk = anim.animations[0]; checkDone(); });
+            animLoader.load('assets/animations/run.fbx', function(anim) { globalFBXAnimations.run = anim.animations[0]; checkDone(); });
+        });
+    }
+    loadMixamoRig();
+
+    function setupPlayerFBX(playerMesh) {
+        if (!fbxLoaded || playerMesh.userData.fbxModel || !playerMesh.userData.bp) return;
+        
+        var clone = THREE.SkeletonUtils.clone(globalFBXModel);
+        playerMesh.userData.fbxModel = clone;
+        playerMesh.add(clone);
+        
+        var mixer = new THREE.AnimationMixer(clone);
+        playerMesh.userData.mixer = mixer;
+        playerMesh.userData.actions = {
+            idle: mixer.clipAction(globalFBXAnimations.idle),
+            walk: mixer.clipAction(globalFBXAnimations.walk),
+            run:  mixer.clipAction(globalFBXAnimations.run)
+        };
+        
+        playerMesh.userData.actions.idle.play();
+        playerMesh.userData.currentAction = playerMesh.userData.actions.idle;
+        
+        // Preserve any previously synced useFBX intent, default to false
+        if (playerMesh.userData.useFBX === undefined) {
+            playerMesh.userData.useFBX = false;
+        }
+        
+        if (playerMesh.userData.useFBX) {
+            bindPlayerBones(playerMesh);
+        }
+    }
+
+    function bindPlayerBones(playerMesh) {
+        if (!playerMesh.userData.fbxModel || !playerMesh.userData.bp) return;
+        playerMesh.userData.useFBX = true;
+        var bp = playerMesh.userData.bp;
+        
+        var getBone = function(name) {
+            var found;
+            playerMesh.userData.fbxModel.traverse(function(c) {
+                if (c.name.includes('mixamorig') && c.name.includes(name)) found = c;
+            });
+            return found;
+        };
+
+        var bindPart = function(part, boneName) {
+            var bone = getBone(boneName);
+            if (bone && part) bone.attach(part);
+        };
+
+        // Put procedural parts into T-Pose before binding
+        bp.pelvis.position.set(0, 0.9, 0);
+        bp.torso.rotation.set(0, 0, 0); bp.torso.scale.set(1, 1, 1);
+        if (bp.head) bp.head.rotation.set(0, 0, 0);
+        bp.legL.rotation.set(0, 0, 0.15); bp.legR.rotation.set(0, 0, -0.15);
+        bp.legL.foot.rotation.set(0, 0, -0.15); bp.legR.foot.rotation.set(0, 0, 0.15);
+        bp.legL.calf.rotation.set(0, 0, 0); bp.legR.calf.rotation.set(0, 0, 0);
+        bp.armL.rotation.set(0, 0, Math.PI / 2); bp.armR.rotation.set(0, 0, -Math.PI / 2);
+        bp.armL.lower.rotation.set(0, 0, 0); bp.armR.lower.rotation.set(0, 0, 0);
+
+        playerMesh.updateMatrixWorld(true);
+        playerMesh.userData.fbxModel.updateMatrixWorld(true);
+
+        bindPart(bp.pelvis, 'Hips');
+        bindPart(bp.torso, 'Spine');
+        if (bp.head) bindPart(bp.head, 'Head');
+        bindPart(bp.armL, 'LeftArm'); bindPart(bp.armL.lower, 'LeftForeArm'); bindPart(bp.armL.hand, 'LeftHand');
+        bindPart(bp.armR, 'RightArm'); bindPart(bp.armR.lower, 'RightForeArm'); bindPart(bp.armR.hand, 'RightHand');
+        bindPart(bp.legL, 'LeftUpLeg'); bindPart(bp.legL.calf, 'LeftLeg'); bindPart(bp.legL.foot, 'LeftFoot');
+        bindPart(bp.legR, 'RightUpLeg'); bindPart(bp.legR.calf, 'RightLeg'); bindPart(bp.legR.foot, 'RightFoot');
+    }
+
+    function unbindPlayerBones(playerMesh) {
+        if (!playerMesh.userData.fbxModel || !playerMesh.userData.bp) return;
+        playerMesh.userData.useFBX = false;
+        var bp = playerMesh.userData.bp;
+        
+        playerMesh.attach(bp.pelvis);
+        bp.pelvis.attach(bp.torso);
+        if (bp.head) bp.torso.attach(bp.head);
+        bp.pelvis.attach(bp.legL); bp.legL.attach(bp.legL.calf); bp.legL.calf.attach(bp.legL.foot);
+        bp.pelvis.attach(bp.legR); bp.legR.attach(bp.legR.calf); bp.legR.calf.attach(bp.legR.foot);
+        bp.torso.attach(bp.armL); bp.armL.attach(bp.armL.lower); bp.armL.lower.attach(bp.armL.hand);
+        bp.torso.attach(bp.armR); bp.armR.attach(bp.armR.lower); bp.armR.lower.attach(bp.armR.hand);
+        
+        // Let animateCharacter set the procedural pose next frame
+    }
+
+    // ============================================================
     // EXACT CHARACTER BUILDERS — ported from 3D-Unified-Workspace
     // ============================================================
 
@@ -247,102 +370,108 @@
     // Build EXACT Goop (Blob) from Unified Workspace
     function buildGoop(playerColor) {
         var group = new THREE.Group();
+        var c = playerColor || 0x059669;
+        
+        var mat = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.1, metalness: 0.0, transmission: 0.9, thickness: 0.5, clearcoat: 1.0, clearcoatRoughness: 0.1, ior: 1.5 });
+        
+        var roundness = 0.5;
 
-        // Blob body — EXACT deformed sphere from Blob/entities/Character.js
-        var blobGeo = new THREE.SphereGeometry(0.35, 32, 32);
-        var pos = blobGeo.attributes.position;
-        for (var i = 0; i < pos.count; i++) {
-            var x = pos.getX(i);
-            var y = pos.getY(i);
-            var z = pos.getZ(i);
-            var yNorm = (y + 0.35) / 0.7; // 0 at bottom, 1 at top
-            // Fatter on bottom, slightly squished on top
-            var scaleFactor = 1.4 - Math.pow(yNorm, 1.5) * 0.7;
-            // Slug protrusion at the back
-            var tailAmount = 0;
-            if (z < 0) {
-                var zBlend = -z / 0.35;
-                tailAmount = Math.pow(1 - yNorm, 2) * 0.6 * zBlend;
+        function goopCreatePart(w, h, d, partType) {
+            var minDim = Math.min(w, h / 2, d);
+            var r = minDim * roundness;
+            var geo = createRoundedBoxGeometry(w, h, d, r, 12);
+            geo.translate(0, -h / 2, 0);
+            if (partType === 'hand') {
+                var handR = Math.max(w, d) * (0.2 + roundness);
+                geo = new THREE.SphereGeometry(handR, 24, 24);
+                geo.translate(0, -h / 2, 0);
             }
-            x *= scaleFactor;
-            z = (z * scaleFactor) - tailAmount;
-            pos.setXYZ(i, x, y, z);
+            var mesh = new THREE.Mesh(geo, mat);
+            mesh.name = partType;
+            mesh.userData.isGoop = true;
+            mesh.visible = false;
+            var pgroup = new THREE.Group();
+            pgroup.add(mesh);
+            pgroup.mesh = mesh;
+            return pgroup;
         }
-        blobGeo.computeVertexNormals();
 
-        // EXACT material from Blob Character.js
-        var blobMat = new THREE.MeshPhysicalMaterial({
-            color: 0x059669, emissive: 0x064e3b, emissiveIntensity: 0.1,
-            roughness: 0.2, metalness: 0.4,
-            transparent: true, opacity: 0.4,
-            clearcoat: 1.0, clearcoatRoughness: 0.1,
-            depthWrite: true
-        });
-        var blobMesh = new THREE.Mesh(blobGeo, blobMat);
-        blobMesh.position.y = 0.35;
-        blobMesh.castShadow = false; blobMesh.receiveShadow = false;
-
-        // EXACT eyes from Blob Character.js
-        var eyeGeo = new THREE.SphereGeometry(0.06, 16, 16);
-        var eyeMat = new THREE.MeshBasicMaterial({ color: 0x0fffc2 });
-        var pupilGeo = new THREE.SphereGeometry(0.03, 16, 16);
-        var pupilMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
-
-        var leftEye = new THREE.Group();
-        leftEye.add(new THREE.Mesh(eyeGeo, eyeMat));
-        var lePupil = new THREE.Mesh(pupilGeo, pupilMat);
-        lePupil.position.z = 0.04;
-        leftEye.add(lePupil);
-        leftEye.position.set(-0.14, 0.15, 0.3);
-        blobMesh.add(leftEye);
-
-        var rightEye = new THREE.Group();
-        rightEye.add(new THREE.Mesh(eyeGeo, eyeMat));
-        var rePupil = new THREE.Mesh(pupilGeo, pupilMat);
-        rePupil.position.z = 0.04;
-        rightEye.add(rePupil);
-        rightEye.position.set(0.14, 0.15, 0.3);
-        blobMesh.add(rightEye);
-
-        // Invisible skeleton groups (EXACT from Unified Workspace Character.js)
-        var pelvis = new THREE.Group();
-        pelvis.add(blobMesh);
+        var pelvis = goopCreatePart(0.25, 0.15, 0.12, 'pelvis');
         group.add(pelvis);
 
-        var torso = new THREE.Group();
-        var head = new THREE.Group();
-        var legL = new THREE.Group();
-        var legR = new THREE.Group();
+        var torsoR = Math.min(0.28, 0.45 / 2, 0.18) * roundness;
+        var torsoGeo = createRoundedBoxGeometry(0.28, 0.45, 0.18, torsoR, 12);
+        torsoGeo.translate(0, 0.45 / 2, 0); 
+        var torso = new THREE.Mesh(torsoGeo, mat);
+        torso.position.y = 0.15;
+        torso.name = 'torso';
+        torso.userData.isGoop = true;
+        torso.visible = false;
         pelvis.add(torso);
-        pelvis.add(legL);
-        pelvis.add(legR);
 
-        legL.calf = new THREE.Group();
-        legR.calf = new THREE.Group();
-        legL.foot = new THREE.Group();
-        legR.foot = new THREE.Group();
-        legL.add(legL.calf);
-        legL.calf.add(legL.foot);
-        legR.add(legR.calf);
-        legR.calf.add(legR.foot);
+        var headR = Math.min(0.18, 0.22 / 2, 0.18) * roundness;
+        var headGeo = createRoundedBoxGeometry(0.18, 0.22, 0.18, headR, 12);
+        var head = new THREE.Mesh(headGeo, mat);
+        head.position.y = 0.45 + 0.12;
+        head.name = 'head';
+        head.userData.isGoop = true;
+        head.visible = false;
+        torso.add(head);
 
-        var armL = new THREE.Group();
-        armL.position.set(0.4, 0.35, 0);
-        pelvis.add(armL);
-        var armR = new THREE.Group();
-        armR.position.set(-0.4, 0.35, 0);
-        pelvis.add(armR);
+        var eyeGeo = new THREE.SphereGeometry(0.04, 16, 16);
+        var eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        var pupilGeo = new THREE.SphereGeometry(0.015, 16, 16);
+        var pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
-        armL.lower = new THREE.Group();
-        armR.lower = new THREE.Group();
-        armL.add(armL.lower);
-        armR.add(armR.lower);
-        armL.hand = new THREE.Group();
-        armL.lower.add(armL.hand);
-        armR.hand = new THREE.Group();
-        armR.lower.add(armR.hand);
+        var eyeL = new THREE.Group();
+        eyeL.add(new THREE.Mesh(eyeGeo, eyeMat));
+        var pupilL = new THREE.Mesh(pupilGeo, pupilMat);
+        pupilL.position.z = 0.035;
+        eyeL.add(pupilL);
+        eyeL.position.set(-0.04, 0.02, 0.1);
+        head.add(eyeL);
 
-        // WEAPON — gun on armR.hand (EXACT from Unified Workspace Character.js)
+        var eyeR = new THREE.Group();
+        eyeR.add(new THREE.Mesh(eyeGeo, eyeMat));
+        var pupilR = new THREE.Mesh(pupilGeo, pupilMat);
+        pupilR.position.z = 0.035;
+        eyeR.add(pupilR);
+        eyeR.position.set(0.04, 0.02, 0.1);
+        head.add(eyeR);
+
+        function createLeg() {
+            var thigh = goopCreatePart(0.12, 0.45, 0.12, 'limb');
+            var calf = goopCreatePart(0.1, 0.45, 0.1, 'limb');
+            calf.position.y = -0.45;
+            thigh.add(calf);
+            var foot = goopCreatePart(0.11, 0.06, 0.22, 'foot');
+            foot.mesh.geometry.translate(0, 0, 0.06);
+            foot.position.y = -0.45;
+            calf.add(foot);
+            thigh.calf = calf;
+            thigh.foot = foot;
+            return thigh;
+        }
+
+        var legL = createLeg(); legL.position.set(0.09, 0, 0); pelvis.add(legL);
+        var legR = createLeg(); legR.position.set(-0.09, 0, 0); pelvis.add(legR);
+
+        function createArm() {
+            var upper = goopCreatePart(0.1, 0.35, 0.1, 'limb');
+            var lower = goopCreatePart(0.08, 0.32, 0.08, 'limb');
+            lower.position.y = -0.35;
+            upper.add(lower);
+            var hand = goopCreatePart(0.08, 0.1, 0.08, 'hand');
+            hand.position.y = -0.32;
+            lower.add(hand);
+            upper.lower = lower;
+            upper.hand = hand;
+            return upper;
+        }
+
+        var armL = createArm(); armL.position.set(0.18, 0.45, 0); torso.add(armL);
+        var armR = createArm(); armR.position.set(-0.18, 0.45, 0); torso.add(armR);
+
         var weaponsMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.6 });
         var gun = new THREE.Group();
         gun.position.set(0, -0.05, 0);
@@ -356,9 +485,15 @@
         gun.visible = true;
         armR.hand.add(gun);
 
-        group.userData.blob = blobMesh;
-        group.userData.leftEye = leftEye;
-        group.userData.rightEye = rightEye;
+        var resolution = 48; // lower resolution for multiplayer performance
+        var marchingCubes = new THREE.MarchingCubes(resolution, mat, false, false);
+        marchingCubes.scale.set(1.5, 1.5, 1.5);
+        marchingCubes.position.set(0, 1.0, 0);
+        group.add(marchingCubes);
+
+        group.userData.marchingCubes = marchingCubes;
+        group.userData.leftEye = eyeL;
+        group.userData.rightEye = eyeR;
         group.userData.bp = { pelvis: pelvis, torso: torso, head: head, legL: legL, legR: legR, armL: armL, armR: armR, gun: gun };
 
         return group;
@@ -399,10 +534,12 @@
         for (var k in previewScenes) {
             var p = previewScenes[k];
             p.model.rotation.y = Math.sin(t * 0.8) * 0.4;
-            if (k === 'goop' && p.model.userData.blob) {
-                var breath = Math.sin(t * 3.5) * 0.06;
-                p.model.userData.blob.scale.set(1 - breath * 0.5, 1 + breath, 1 - breath * 0.5);
+            
+            // Re-use animateCharacter for the preview so Goop's marchingCubes updates
+            if (typeof animateCharacter === 'function') {
+                animateCharacter(p.model, k, false, false, false, -1, t, 0.016, 0, 0, 0, 0);
             }
+            
             p.renderer.render(p.scene, p.camera);
         }
     }
@@ -426,28 +563,115 @@
     dirLight.shadow.camera.left = -30; dirLight.shadow.camera.right = 30;
     scene.add(dirLight);
 
-    var floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100),
-        new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.9 }));
-    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-    var grid = new THREE.GridHelper(100, 50, 0x000000, 0x000000);
-    grid.material.opacity = 0.15; grid.material.transparent = true; scene.add(grid);
-
-    function addBlock(x, y, z, w, h, d, color) {
-        var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: color }));
-        m.position.set(x, y + h / 2, z); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    function getTerrainHeight(x, z) {
+        if (Math.abs(x) < 3 && Math.abs(z) < 3) return 0;
+        return (Math.sin(x * 0.2) * Math.cos(-z * 0.2)) * 0.8 + (Math.sin(x * 0.05) * Math.cos(-z * 0.05)) * 3.0;
     }
-    addBlock(5, 0, -8, 2, 3, 2, 0x8b4513);
-    addBlock(-10, 0, 5, 3, 1.5, 3, 0x556b2f);
-    addBlock(12, 0, 12, 1.5, 4, 1.5, 0x708090);
-    addBlock(-7, 0, -12, 4, 2, 2, 0xa0522d);
-    addBlock(0, 0, 15, 2, 5, 2, 0x4682b4);
 
-    // Pointer Lock
+    function buildEnvironment() {
+        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.4, 1.5, 7);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3219, roughness: 1.0 });
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.9 });
+        const darkLeafMat = new THREE.MeshStandardMaterial({ color: 0x1f401b, roughness: 0.9 });
+
+        for (let i = 0; i < 200; i++) {
+            const tx = (Math.random() - 0.5) * 200;
+            const tz = (Math.random() - 0.5) * 200;
+            if (Math.abs(tx) < 8 && Math.abs(tz) < 8) continue;
+            
+            const th = getTerrainHeight(tx, tz);
+            const tree = new THREE.Group();
+            
+            const trunkH = 1.0 + Math.random() * 2.0;
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.scale.y = trunkH / 1.5;
+            trunk.position.y = trunkH / 2;
+            trunk.castShadow = true;
+            tree.add(trunk);
+
+            const canopyR = 1.0 + Math.random() * 1.5;
+            const mat = Math.random() > 0.5 ? leafMat : darkLeafMat;
+            const canopy = new THREE.Mesh(new THREE.SphereGeometry(canopyR, 8, 6), mat);
+            canopy.position.y = trunkH + canopyR * 0.5;
+            canopy.scale.y = 0.7 + Math.random() * 0.3;
+            canopy.castShadow = true;
+            tree.add(canopy);
+
+            if (Math.random() > 0.4) {
+                const sub = new THREE.Mesh(new THREE.SphereGeometry(canopyR * 0.6, 8, 6), mat);
+                sub.position.set((Math.random() - 0.5) * canopyR, trunkH + canopyR * 0.2, (Math.random() - 0.5) * canopyR);
+                sub.castShadow = true;
+                tree.add(sub);
+            }
+
+            tree.position.set(tx, th, tz);
+            tree.rotation.y = Math.random() * Math.PI * 2;
+            tree.rotation.z = (Math.random() - 0.5) * 0.15;
+            tree.rotation.x = (Math.random() - 0.5) * 0.15;
+            scene.add(tree);
+        }
+    }
+
+    const floorGeo = new THREE.PlaneGeometry(250, 250, 250, 250);
+    const pos = floorGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        if (Math.abs(x) < 3 && Math.abs(y) < 3) continue;
+        const z = (Math.sin(x * 0.2) * Math.cos(y * 0.2)) * 0.8 + (Math.sin(x * 0.05) * Math.cos(y * 0.05)) * 3.0;
+        pos.setZ(i, z);
+    }
+    floorGeo.computeVertexNormals();
+
+    const floor = new THREE.Mesh(
+        floorGeo,
+        new THREE.MeshStandardMaterial({ 
+            color: 0x3a7a2a, 
+            roughness: 0.9, 
+            metalness: 0.0, 
+            flatShading: true 
+        })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    buildEnvironment();
+
+    // Pointer Lock & Marching Panel
     var PI_2 = Math.PI / 2;
+    var mPanel = document.getElementById('marching-panel');
+    var resSlider = document.getElementById('resSlider');
+    var resVal = document.getElementById('resVal');
+    var isoSlider = document.getElementById('isoSlider');
+    var isoVal = document.getElementById('isoVal');
+
+    if (resSlider) {
+        resSlider.addEventListener('input', function() {
+            resVal.textContent = this.value;
+            if (myCharacter && myCharacter.userData.marchingCubes) {
+                myCharacter.userData.marchingCubes.init(parseInt(this.value));
+                if (isoSlider) myCharacter.userData.marchingCubes.isolation = parseInt(isoSlider.value);
+            }
+        });
+    }
+    if (isoSlider) {
+        isoSlider.addEventListener('input', function() {
+            isoVal.textContent = this.value;
+            if (myCharacter && myCharacter.userData.marchingCubes) {
+                myCharacter.userData.marchingCubes.isolation = parseInt(this.value);
+            }
+        });
+    }
+
     document.addEventListener('pointerlockchange', function () {
         isLocked = (document.pointerLockElement === renderer.domElement);
         crosshair.style.display = isLocked ? 'block' : 'none';
         if (!isLocked && isPlaying) chatInput.focus();
+        
+        if (mPanel) {
+            mPanel.style.display = (!isLocked && isPlaying && selectedChar === 'goop') ? 'block' : 'none';
+        }
     });
     document.addEventListener('mousemove', function (e) {
         if (!isLocked || !myCharacter) return;
@@ -668,6 +892,15 @@
             players[d.id].localVz = d.localVz;
             players[d.id].userData.inventory = d.inventory;
             players[d.id].userData.camPitch = d.camPitch;
+            if (d.useFBX !== undefined) {
+                if (d.useFBX && !players[d.id].userData.useFBX) {
+                    if (players[d.id].userData.fbxModel) bindPlayerBones(players[d.id].mesh);
+                    else players[d.id].userData.useFBX = true;
+                } else if (!d.useFBX && players[d.id].userData.useFBX) {
+                    if (players[d.id].userData.fbxModel) unbindPlayerBones(players[d.id].mesh);
+                    else players[d.id].userData.useFBX = false;
+                }
+            }
         }
     });
     socket.on('playerShoot', function (d) {
@@ -700,127 +933,93 @@
         inventory = inventory || 0;
         camPitch = camPitch || 0;
         shootTime = shootTime || 0;
-        if (charType === 'goop' && mesh.userData.blob) {
-            var blob = mesh.userData.blob;
-            var stretchMod = speedStr * 0.4;
-            var targetScaleZ = (1 + stretchMod);
-            var targetScaleX = (1 / Math.sqrt(1 + stretchMod));
-            var targetScaleY = (1 / Math.sqrt(1 + stretchMod));
-            var breathCycle = t * 3.5;
-            var breathY = Math.sin(breathCycle) * 0.06;
-            var breathXZ = -Math.sin(breathCycle) * 0.03;
-            targetScaleY += breathY;
-            targetScaleX += breathXZ;
-            targetScaleZ += breathXZ;
-            
-            if (!blob.userData.bp) blob.userData.bp = { scaleX:1, scaleY:1, scaleZ:1, scaleVX:0, scaleVY:0, scaleVZ:0, spring:0.1, damp:0.8 };
-            var bp = blob.userData.bp;
-            bp.scaleVX += (targetScaleX - bp.scaleX) * bp.spring;
-            bp.scaleVY += (targetScaleY - bp.scaleY) * bp.spring;
-            bp.scaleVZ += (targetScaleZ - bp.scaleZ) * bp.spring;
-            bp.scaleVX *= bp.damp; bp.scaleVY *= bp.damp; bp.scaleVZ *= bp.damp;
-            bp.scaleX += bp.scaleVX; bp.scaleY += bp.scaleVY; bp.scaleZ += bp.scaleVZ;
-            blob.scale.set(bp.scaleX, bp.scaleY, bp.scaleZ);
-
-            if (speedStr > 0.05) {
-                blob.rotation.z = Math.sin(t * 15) * speedStr * 0.05;
-                blob.rotation.x = Math.cos(t * 12) * speedStr * 0.05;
-                if (mesh.userData.leftEye) mesh.userData.leftEye.position.z = 0.3 + Math.min(speedStr * 0.2, 0.5) * 0.175;
-                if (mesh.userData.rightEye) mesh.userData.rightEye.position.z = 0.3 + Math.min(speedStr * 0.2, 0.5) * 0.175;
-            }
-
-            // Gun visibility + aiming for Goop (EXACT from Unified Workspace main.js line 666-677)
-            if (mesh.userData.bp && mesh.userData.bp.gun) {
-                var goopBp = mesh.userData.bp;
-                goopBp.gun.visible = (inventory === 1);
-
-                if (inventory === 1) {
-                    goopBp.armR.rotation.x = -Math.PI / 2 + camPitch;
-                    if (shootTime > 0) {
-                        goopBp.armR.rotation.x -= Math.sin((shootTime / 0.15) * Math.PI) * 0.4;
-                    }
-                    goopBp.armR.rotation.z = -0.05;
-                    goopBp.armR.rotation.y = 0.2;
-
-                    goopBp.armL.rotation.x = -0.8 + camPitch;
-                    goopBp.armL.lower.rotation.x = -0.9;
-                    goopBp.armL.rotation.z = 0.25;
-                    goopBp.armL.rotation.y = -0.1;
-                }
-            }
-        } else if (charType === 'modular' && mesh.userData.bp) {
+        if (mesh.userData.bp) {
             // Use direct refs stored at build time (like Unified Workspace bodyParts.*)
             var bp = mesh.userData.bp;
             var pelvis = bp.pelvis, torso = bp.torso, head = bp.head;
             var legL = bp.legL, legR = bp.legR, armL = bp.armL, armR = bp.armR;
 
-            // --- EXACT resetPose from Unified Workspace ---
-            pelvis.position.y = 0.9;
-            pelvis.position.z = 0;
-            torso.rotation.x = 0; torso.rotation.y = 0; torso.scale.y = 1.0;
-            if (head) { head.rotation.x = 0; head.rotation.y = 0; }
-            legL.rotation.x = 0; legR.rotation.x = 0;
-            legL.calf.rotation.x = 0; legR.calf.rotation.x = 0;
-            legL.foot.rotation.x = 0; legR.foot.rotation.x = 0;
-            armL.rotation.x = 0; armL.rotation.z = 0; armL.lower.rotation.x = 0;
-            armR.rotation.x = 0; armR.rotation.z = 0; armR.lower.rotation.x = 0;
-
-            let thighRot = 0;
-            let calfRot = 0;
-            if (isCrouching) {
-                thighRot = -1.2;
-                calfRot = 1.9;
-                
-                legL.rotation.x = thighRot;
-                legR.rotation.x = thighRot;
-                legL.calf.rotation.x = calfRot;
-                legR.calf.rotation.x = calfRot;
-                
-                torso.rotation.x = -0.4;
-                armL.rotation.x = 0.6;
-                armR.rotation.x = 0.6;
-            }
-
-            const legH = 0.45 * (state.legs || 1.0);
-            const footH = 0.09 * (state.legs || 1.0);
-            const currentPelvisY = legH * Math.cos(thighRot) + legH * Math.cos(thighRot + calfRot) + footH;
-            pelvis.position.y = currentPelvisY;
-
-            // --- EXACT walk/run animation from Unified Workspace (line 2582-2604) ---
-            if (isMoving) {
-                var speed = isSprinting ? 14 : 8;
-                var amp = isSprinting ? 0.9 : 0.5;
-                var phase = t * speed;
-                legL.rotation.x += Math.sin(phase) * amp;
-                legR.rotation.x += Math.sin(phase + Math.PI) * amp;
-                legL.calf.rotation.x += Math.max(0, Math.sin(phase - 1.2)) * amp * 2.2;
-                legR.calf.rotation.x += Math.max(0, Math.sin(phase + Math.PI - 1.2)) * amp * 2.2;
-                armL.rotation.x = Math.sin(phase + Math.PI) * amp;
-                armR.rotation.x = Math.sin(phase) * amp;
-
-                if (jumpTime < 0) {
-                    var bobAmt = isSprinting ? 0.12 : 0.05;
-                    pelvis.position.y += (Math.cos(phase * 2) * -0.5 + 0.5) * bobAmt;
+            if (mesh.userData.useFBX) {
+                if (mesh.userData.mixer) {
+                    var targetAction = mesh.userData.actions.idle;
+                    if (isMoving) targetAction = isSprinting ? mesh.userData.actions.run : mesh.userData.actions.walk;
+                    
+                    if (mesh.userData.currentAction !== targetAction) {
+                        mesh.userData.currentAction.fadeOut(0.2);
+                        targetAction.reset().fadeIn(0.2).play();
+                        mesh.userData.currentAction = targetAction;
+                    }
+                    mesh.userData.mixer.update(delta);
                 }
-                torso.rotation.x += isSprinting ? 0.3 : 0.05;
-                torso.rotation.y = Math.sin(phase) * 0.15;
             } else {
-                // --- EXACT idle from Unified Workspace (line 2699-2703) ---
-                var breath = Math.sin(t * 2);
-                torso.scale.y = 1.0 + breath * 0.012;
-                armL.rotation.z = 0.15 + breath * 0.02;
-                armR.rotation.z = -0.15 - breath * 0.02;
-            }
+                // --- EXACT resetPose from Unified Workspace ---
+                pelvis.position.y = 0.9;
+                pelvis.position.z = 0;
+                torso.rotation.x = 0; torso.rotation.y = 0; torso.scale.y = 1.0;
+                if (head) { head.rotation.x = 0; head.rotation.y = 0; }
+                legL.rotation.x = 0; legR.rotation.x = 0;
+                legL.calf.rotation.x = 0; legR.calf.rotation.x = 0;
+                legL.foot.rotation.x = 0; legR.foot.rotation.x = 0;
+                armL.rotation.x = 0; armL.rotation.z = 0; armL.lower.rotation.x = 0;
+                armR.rotation.x = 0; armR.rotation.z = 0; armR.lower.rotation.x = 0;
 
-            // --- EXACT flat feet from Unified Workspace (line 2602-2604) ---
-            legL.foot.rotation.x = -(legL.rotation.x + legL.calf.rotation.x);
-            legR.foot.rotation.x = -(legR.rotation.x + legR.calf.rotation.x);
+                let thighRot = 0;
+                let calfRot = 0;
+                if (isCrouching) {
+                    thighRot = -1.2;
+                    calfRot = 1.9;
+                    
+                    legL.rotation.x = thighRot;
+                    legR.rotation.x = thighRot;
+                    legL.calf.rotation.x = calfRot;
+                    legR.calf.rotation.x = calfRot;
+                    
+                    torso.rotation.x = -0.4;
+                    armL.rotation.x = 0.6;
+                    armR.rotation.x = 0.6;
+                }
 
-            // --- EXACT jump from Unified Workspace (line 2572-2580) ---
-            if (jumpTime >= 0) {
-                legL.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
-                legR.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
-            }
+                const legH = 0.45 * (state.legs || 1.0);
+                const footH = 0.09 * (state.legs || 1.0);
+                const currentPelvisY = legH * Math.cos(thighRot) + legH * Math.cos(thighRot + calfRot) + footH;
+                pelvis.position.y = currentPelvisY;
+
+                // --- EXACT walk/run animation from Unified Workspace (line 2582-2604) ---
+                if (isMoving) {
+                    var speed = isSprinting ? 14 : 8;
+                    var amp = isSprinting ? 0.9 : 0.5;
+                    var phase = t * speed;
+                    legL.rotation.x += Math.sin(phase) * amp;
+                    legR.rotation.x += Math.sin(phase + Math.PI) * amp;
+                    legL.calf.rotation.x += Math.max(0, Math.sin(phase - 1.2)) * amp * 2.2;
+                    legR.calf.rotation.x += Math.max(0, Math.sin(phase + Math.PI - 1.2)) * amp * 2.2;
+                    armL.rotation.x = Math.sin(phase + Math.PI) * amp;
+                    armR.rotation.x = Math.sin(phase) * amp;
+
+                    if (jumpTime < 0) {
+                        var bobAmt = isSprinting ? 0.12 : 0.05;
+                        pelvis.position.y += (Math.cos(phase * 2) * -0.5 + 0.5) * bobAmt;
+                    }
+                    torso.rotation.x += isSprinting ? 0.3 : 0.05;
+                    torso.rotation.y = Math.sin(phase) * 0.15;
+                } else {
+                    // --- EXACT idle from Unified Workspace (line 2699-2703) ---
+                    var breath = Math.sin(t * 2);
+                    torso.scale.y = 1.0 + breath * 0.012;
+                    armL.rotation.z = 0.15 + breath * 0.02;
+                    armR.rotation.z = -0.15 - breath * 0.02;
+                }
+
+                // --- EXACT flat feet from Unified Workspace (line 2602-2604) ---
+                legL.foot.rotation.x = -(legL.rotation.x + legL.calf.rotation.x);
+                legR.foot.rotation.x = -(legR.rotation.x + legR.calf.rotation.x);
+
+                // --- EXACT jump from Unified Workspace (line 2572-2580) ---
+                if (jumpTime >= 0) {
+                    legL.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
+                    legR.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
+                }
+            } // end procedural
 
             // Weapon visibility
             if (bp.gun) {
@@ -830,7 +1029,7 @@
             // --- ARC RAIDERS UPPER BODY AIMING ---
             let appliedTorsoPitch = camPitch * 0.2;
             
-            // Aiming Inventory Overrides
+            // Aiming Inventory Overrides (applied even with FBX to control aiming)
             if (inventory === 1) { // Gun
                 armR.rotation.x = -Math.PI / 2 + (camPitch - appliedTorsoPitch);
                 if (shootTime > 0) {
@@ -844,6 +1043,69 @@
                 armL.rotation.z = 0.25;  // Kept close to body
                 armL.rotation.y = -0.1;
             }
+        }
+
+        if (charType === 'goop' && mesh.userData.marchingCubes) {
+            var marchingCubes = mesh.userData.marchingCubes;
+            marchingCubes.reset();
+            const actualDomainSize = marchingCubes.scale.x * 2.0;
+            const P = marchingCubes.position;
+
+            mesh.traverse((child) => {
+                if (child.isMesh && child.userData.isGoop) {
+                    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+                    const bbox = child.geometry.boundingBox;
+                    
+                    const height = bbox.max.y - bbox.min.y;
+                    const width = bbox.max.x - bbox.min.x;
+                    const depth = bbox.max.z - bbox.min.z;
+                    
+                    let radius = 0.07; 
+                    if (child.name === 'torso') radius = 0.13;
+                    else if (child.name === 'head') radius = 0.11;
+                    else if (child.name === 'pelvis') radius = 0.09;
+                    else if (child.name === 'foot' || child.name === 'hand') radius = 0.08;
+                    
+                    const primaryDim = Math.max(width, height, depth);
+                    const numBalls = Math.max(1, Math.ceil(primaryDim / (radius * 0.75)));
+
+                    // Multiply size by a baseline factor for isolation 80
+                    const size = 110 * Math.pow(radius / actualDomainSize, 2);
+
+                    for (let i = 0; i <= numBalls; i++) {
+                        const t_ball = numBalls === 0 ? 0.5 : i / numBalls;
+                        const center = new THREE.Vector3();
+                        
+                        if (child.name === 'pelvis') {
+                            // Spread horizontally along X
+                            center.x = bbox.min.x + width * t_ball;
+                            center.y = (bbox.max.y + bbox.min.y) / 2;
+                            center.z = (bbox.max.z + bbox.min.z) / 2;
+                        } else if (child.name === 'foot') {
+                            // Spread forward/backward along Z
+                            center.x = (bbox.max.x + bbox.min.x) / 2;
+                            center.y = (bbox.max.y + bbox.min.y) / 2;
+                            center.z = bbox.min.z + depth * t_ball;
+                        } else {
+                            // Spread vertically along Y
+                            center.x = (bbox.max.x + bbox.min.x) / 2;
+                            center.z = (bbox.max.z + bbox.min.z) / 2;
+                            center.y = bbox.min.y + height * t_ball;
+                        }
+                        
+                        const localCenter = center.clone();
+                        child.localToWorld(localCenter);
+                        const localPos = mesh.worldToLocal(localCenter);
+                        
+                        const mappedX = (localPos.x - P.x) / actualDomainSize + 0.5;
+                        const mappedY = (localPos.y - P.y) / actualDomainSize + 0.5;
+                        const mappedZ = (localPos.z - P.z) / actualDomainSize + 0.5;
+                        
+                        marchingCubes.addBall(mappedX, mappedY, mappedZ, size, 12, 1.0);
+                    }
+                }
+            });
+            marchingCubes.update();
         }
     }
 
@@ -887,17 +1149,25 @@
                 myCharacter.children[0].rotation.z *= 0.9;
             }
 
+            // --- Update Base Y from Terrain ---
+            state.baseY = getTerrainHeight(myCharacter.position.x, myCharacter.position.z);
+
             // --- EXACT jump from Unified Workspace (line 2572-2580) ---
             if (state.jumpTime >= 0) {
                 state.jumpTime += delta * 2.5;
                 var jumpH = Math.sin(Math.min(state.jumpTime, 1) * Math.PI) * 1.3;
-                myCharacter.position.y = (state.baseY || 0) + Math.max(0, jumpH);
+                myCharacter.position.y = state.baseY + Math.max(0, jumpH);
                 if (state.jumpTime >= 1.0) state.jumpTime = -1;
             } else {
                 myCharacter.position.y = state.baseY;
             }
 
             if (state.shootTime > 0) state.shootTime -= delta;
+
+            if (fbxLoaded && selectedChar === 'modular' && !myCharacter.userData.fbxModel) {
+                setupPlayerFBX(myCharacter);
+            }
+
             animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.isCrouching, state.jumpTime, t, delta, Math.hypot(localVx, localVz), state.inventory, Math.max(0, state.shootTime), state.camPitch);
 
             // --- EXACT upper body aiming from Unified Workspace (line 2729-2750) ---
@@ -934,7 +1204,7 @@
             var lookTgt = camRig.localToWorld(new THREE.Vector3(0, 0, 100));
             camera.lookAt(lookTgt);
 
-            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz, inventory: state.inventory, camPitch: state.camPitch });
+            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false });
         }
 
         for (var i = state.tracers.length - 1; i >= 0; i--) {
@@ -975,6 +1245,10 @@
             if (p.charType === 'goop' && p.mesh.children[0] && !p.isMoving) {
                 p.mesh.children[0].rotation.x *= 0.9;
                 p.mesh.children[0].rotation.z *= 0.9;
+            }
+
+            if (fbxLoaded && p.charType === 'modular' && !p.mesh.userData.fbxModel) {
+                setupPlayerFBX(p.mesh);
             }
 
             if (p.userData && p.userData.shootTime > 0) p.userData.shootTime -= delta;

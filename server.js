@@ -65,7 +65,8 @@ io.on('connection', (socket) => {
                 localVx: movementData.localVx,
                 localVz: movementData.localVz,
                 inventory: movementData.inventory,
-                camPitch: movementData.camPitch
+                camPitch: movementData.camPitch,
+                useFBX: movementData.useFBX
             });
         }
     });
