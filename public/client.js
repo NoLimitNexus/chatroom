@@ -630,6 +630,9 @@
         if (window.sharedWater) {
             window.sharedWater.material.uniforms['time'].value += delta;
         }
+        if (window.sharedClouds) {
+            window.sharedClouds.rotation.y += 0.0005;
+        }
         if (isLocked && myCharacter) {
             // --- EXACT input from Unified Workspace (line 2469-2470) ---
             var moveZ = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
