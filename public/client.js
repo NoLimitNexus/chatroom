@@ -218,292 +218,16 @@
     // ============================================================
     // EXACT CHARACTER BUILDERS — ported from 3D-Unified-Workspace
     // ============================================================
-
-    // --- Modular Man helpers (from ModularMan/index.html) ---
-    function createRoundedBoxGeometry(w, h, d, r, bevelSegments) {
-        bevelSegments = bevelSegments || 4;
-        var shape = new THREE.Shape();
-        var x = -w / 2, y = -d / 2;
-        shape.moveTo(x, y + r);
-        shape.lineTo(x, y + d - r);
-        shape.quadraticCurveTo(x, y + d, x + r, y + d);
-        shape.lineTo(x + w - r, y + d);
-        shape.quadraticCurveTo(x + w, y + d, x + w, y + d - r);
-        shape.lineTo(x + w, y + r);
-        shape.quadraticCurveTo(x + w, y, x + w - r, y);
-        shape.lineTo(x + r, y);
-        shape.quadraticCurveTo(x, y, x, y + r);
-        var extrudeSettings = {
-            depth: Math.max(0.001, h - (r * 2)),
-            bevelEnabled: true, bevelSegments: bevelSegments,
-            steps: 1, bevelSize: r, bevelThickness: r
-        };
-        var geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        geo.center();
-        geo.rotateX(Math.PI / 2);
-        return geo;
-    }
-
-    function mmGetMaterial(color) {
-        return new THREE.MeshPhysicalMaterial({ color: color, roughness: 0.3, metalness: 0.1, clearcoat: 0.8, clearcoatRoughness: 0.1 });
-    }
-
-    function mmCreatePart(w, h, d, color, partType) {
-        partType = partType || 'limb';
-        var roundness = 0.49;
-        var mat = mmGetMaterial(color);
-        var minDim = Math.min(w, h / 2, d);
-        var r = minDim * roundness;
-        var geo = createRoundedBoxGeometry(w, h, d, r, 12);
-        geo.translate(0, -h / 2, 0);
-        if (partType === 'hand') {
-            var handR = Math.max(w, d) * (0.2 + roundness);
-            geo = new THREE.SphereGeometry(handR, 24, 24);
-            geo.translate(0, -h / 2, 0);
-        }
-        var mesh = new THREE.Mesh(geo, mat);
-        mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = partType;
-        var group = new THREE.Group();
-        group.add(mesh); group.mesh = mesh;
-        return group;
-    }
-
-    function mmCreateLeg(limbColor) {
-        var thigh = mmCreatePart(0.12, 0.45, 0.12, limbColor, 'limb');
-        var calf = mmCreatePart(0.1, 0.45, 0.1, limbColor, 'limb');
-        calf.position.y = -0.45;
-        thigh.add(calf);
-        var foot = mmCreatePart(0.11, 0.06, 0.22, limbColor, 'foot');
-        foot.mesh.geometry.translate(0, 0, 0.06);
-        foot.position.y = -0.45;
-        calf.add(foot);
-        thigh.calf = calf; thigh.foot = foot;
-        return thigh;
-    }
-
-    function mmCreateArm(limbColor) {
-        var upper = mmCreatePart(0.1, 0.35, 0.1, limbColor, 'limb');
-        var lower = mmCreatePart(0.08, 0.32, 0.08, limbColor, 'limb');
-        lower.position.y = -0.35;
-        upper.add(lower);
-        var hand = mmCreatePart(0.08, 0.1, 0.08, limbColor, 'hand');
-        hand.position.y = -0.32;
-        lower.add(hand);
-        upper.lower = lower; upper.hand = hand;
-        return upper;
-    }
-
-    // Build EXACT Modular Man from Unified Workspace
-    function buildModularMan(playerColor) {
-        var colorTorso = '#3b82f6';
-        var colorHead = '#ffdbac';
-        var colorLimbs = '#1e40af';
-        var group = new THREE.Group();
-
-        // PELVIS
-        var pelvis = mmCreatePart(0.25, 0.15, 0.12, colorTorso, 'pelvis');
-        group.add(pelvis);
-
-        // TORSO
-        var torsoR = Math.min(0.28, 0.45 / 2, 0.18) * 0.49;
-        var torsoGeo = createRoundedBoxGeometry(0.28, 0.45, 0.18, torsoR, 12);
-        torsoGeo.translate(0, 0.45 / 2, 0);
-        var torso = new THREE.Mesh(torsoGeo, mmGetMaterial(colorTorso));
-        torso.position.y = 0.15;
-        torso.castShadow = true; torso.receiveShadow = true; torso.name = 'torso';
-        pelvis.add(torso);
-
-        // HEAD
-        var headR = Math.min(0.18, 0.22 / 2, 0.18) * 0.49;
-        var headGeo = createRoundedBoxGeometry(0.18, 0.22, 0.18, headR, 12);
-        var head = new THREE.Mesh(headGeo, mmGetMaterial(colorHead));
-        head.position.y = 0.45 + 0.12;
-        head.castShadow = true; head.receiveShadow = true; head.name = 'head';
-
-        // VISOR
-        var visorGeo = createRoundedBoxGeometry(0.12, 0.04, 0.04, 0.015, 8);
-        var visorMat = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.1, metalness: 0.9, clearcoat: 1.0 });
-        var visor = new THREE.Mesh(visorGeo, visorMat);
-        visor.position.set(0, 0.04, 0.09); visor.name = 'visor';
-        head.add(visor);
-        torso.add(head);
-
-        // LEGS
-        var legL = mmCreateLeg(colorLimbs);
-        legL.position.set(0.095, 0, 0);
-        pelvis.add(legL);
-        var legR = mmCreateLeg(colorLimbs);
-        legR.position.set(-0.095, 0, 0);
-        pelvis.add(legR);
-
-        // ARMS
-        var armL = mmCreateArm(colorLimbs);
-        armL.position.set(0.19, 0.40, 0);
-        torso.add(armL);
-        var armR = mmCreateArm(colorLimbs);
-        armR.position.set(-0.19, 0.40, 0);
-        torso.add(armR);
-
-        // WEAPONS
-        var weaponsMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.6 });
-        var gun = new THREE.Group();
-        gun.position.set(0, -0.05, 0);
-        var barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.05), weaponsMat);
-        barrel.position.set(0, -0.1, 0.05);
-        barrel.castShadow = true;
-        var grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.12), weaponsMat);
-        grip.position.set(0, 0, -0.02);
-        grip.castShadow = true;
-        gun.add(barrel); gun.add(grip);
-        gun.visible = true;
-        armR.hand.add(gun);
-
-        // Position pelvis at correct height (legs are ~0.9 total)
-        pelvis.position.y = 0.9;
-
-        // Store direct refs like Unified Workspace bodyParts.*
-        group.userData.bp = { pelvis: pelvis, torso: torso, head: head, legL: legL, legR: legR, armL: armL, armR: armR, gun: gun };
-
-        return group;
-    }
-
-    // Build EXACT Goop (Blob) from Unified Workspace
-    function buildGoop(playerColor) {
-        var group = new THREE.Group();
-        var c = playerColor || 0x059669;
-        
-        var mat = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.1, metalness: 0.0, transmission: 0.9, thickness: 0.5, clearcoat: 1.0, clearcoatRoughness: 0.1, ior: 1.5 });
-        
-        var roundness = 0.5;
-
-        function goopCreatePart(w, h, d, partType) {
-            var minDim = Math.min(w, h / 2, d);
-            var r = minDim * roundness;
-            var geo = createRoundedBoxGeometry(w, h, d, r, 12);
-            geo.translate(0, -h / 2, 0);
-            if (partType === 'hand') {
-                var handR = Math.max(w, d) * (0.2 + roundness);
-                geo = new THREE.SphereGeometry(handR, 24, 24);
-                geo.translate(0, -h / 2, 0);
-            }
-            var mesh = new THREE.Mesh(geo, mat);
-            mesh.name = partType;
-            mesh.userData.isGoop = true;
-            mesh.visible = false;
-            var pgroup = new THREE.Group();
-            pgroup.add(mesh);
-            pgroup.mesh = mesh;
-            return pgroup;
-        }
-
-        var pelvis = goopCreatePart(0.25, 0.15, 0.12, 'pelvis');
-        group.add(pelvis);
-
-        var torsoR = Math.min(0.28, 0.45 / 2, 0.18) * roundness;
-        var torsoGeo = createRoundedBoxGeometry(0.28, 0.45, 0.18, torsoR, 12);
-        torsoGeo.translate(0, 0.45 / 2, 0); 
-        var torso = new THREE.Mesh(torsoGeo, mat);
-        torso.position.y = 0.15;
-        torso.name = 'torso';
-        torso.userData.isGoop = true;
-        torso.visible = false;
-        pelvis.add(torso);
-
-        var headR = Math.min(0.18, 0.22 / 2, 0.18) * roundness;
-        var headGeo = createRoundedBoxGeometry(0.18, 0.22, 0.18, headR, 12);
-        var head = new THREE.Mesh(headGeo, mat);
-        head.position.y = 0.45 + 0.12;
-        head.name = 'head';
-        head.userData.isGoop = true;
-        head.visible = false;
-        torso.add(head);
-
-        var eyeGeo = new THREE.SphereGeometry(0.04, 16, 16);
-        var eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        var pupilGeo = new THREE.SphereGeometry(0.015, 16, 16);
-        var pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-
-        var eyeL = new THREE.Group();
-        eyeL.add(new THREE.Mesh(eyeGeo, eyeMat));
-        var pupilL = new THREE.Mesh(pupilGeo, pupilMat);
-        pupilL.position.z = 0.035;
-        eyeL.add(pupilL);
-        eyeL.position.set(-0.04, 0.02, 0.1);
-        head.add(eyeL);
-
-        var eyeR = new THREE.Group();
-        eyeR.add(new THREE.Mesh(eyeGeo, eyeMat));
-        var pupilR = new THREE.Mesh(pupilGeo, pupilMat);
-        pupilR.position.z = 0.035;
-        eyeR.add(pupilR);
-        eyeR.position.set(0.04, 0.02, 0.1);
-        head.add(eyeR);
-
-        function createLeg() {
-            var thigh = goopCreatePart(0.12, 0.45, 0.12, 'limb');
-            var calf = goopCreatePart(0.1, 0.45, 0.1, 'limb');
-            calf.position.y = -0.45;
-            thigh.add(calf);
-            var foot = goopCreatePart(0.11, 0.06, 0.22, 'foot');
-            foot.mesh.geometry.translate(0, 0, 0.06);
-            foot.position.y = -0.45;
-            calf.add(foot);
-            thigh.calf = calf;
-            thigh.foot = foot;
-            return thigh;
-        }
-
-        var legL = createLeg(); legL.position.set(0.09, 0, 0); pelvis.add(legL);
-        var legR = createLeg(); legR.position.set(-0.09, 0, 0); pelvis.add(legR);
-
-        function createArm() {
-            var upper = goopCreatePart(0.1, 0.35, 0.1, 'limb');
-            var lower = goopCreatePart(0.08, 0.32, 0.08, 'limb');
-            lower.position.y = -0.35;
-            upper.add(lower);
-            var hand = goopCreatePart(0.08, 0.1, 0.08, 'hand');
-            hand.position.y = -0.32;
-            lower.add(hand);
-            upper.lower = lower;
-            upper.hand = hand;
-            return upper;
-        }
-
-        var armL = createArm(); armL.position.set(0.18, 0.45, 0); torso.add(armL);
-        var armR = createArm(); armR.position.set(-0.18, 0.45, 0); torso.add(armR);
-
-        var weaponsMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.6 });
-        var gun = new THREE.Group();
-        gun.position.set(0, -0.05, 0);
-        var barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.05), weaponsMat);
-        barrel.position.set(0, -0.1, 0.05);
-        barrel.castShadow = true;
-        var grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.12), weaponsMat);
-        grip.position.set(0, 0, -0.02);
-        grip.castShadow = true;
-        gun.add(barrel); gun.add(grip);
-        gun.visible = true;
-        armR.hand.add(gun);
-
-        var resolution = 48; // lower resolution for multiplayer performance
-        var marchingCubes = new THREE.MarchingCubes(resolution, mat, false, false);
-        marchingCubes.scale.set(1.5, 1.5, 1.5);
-        marchingCubes.position.set(0, 1.0, 0);
-        group.add(marchingCubes);
-
-        group.userData.marchingCubes = marchingCubes;
-        group.userData.leftEye = eyeL;
-        group.userData.rightEye = eyeR;
-        group.userData.bp = { pelvis: pelvis, torso: torso, head: head, legL: legL, legR: legR, armL: armL, armR: armR, gun: gun };
-
-        return group;
-    }
+    // Characters are now loaded dynamically from shared-characters.js
+    // which is hosted directly from the 3D-Unified-Workspace project!
+    // ============================================================
 
     // === MINI 3D PREVIEWS ===
     var previewScenes = {};
     function initCharPreviews() {
         if (previewScenes.modular) return;
         createPreview('preview-modular', 'modular');
+        createPreview('preview-goop-man', 'goop-man');
         createPreview('preview-goop', 'goop');
         animatePreviews();
     }
@@ -524,7 +248,7 @@
         var gnd = new THREE.Mesh(new THREE.CircleGeometry(1.2, 32),
             new THREE.MeshStandardMaterial({ color: 0x1a2744, roughness: 0.8 }));
         gnd.rotation.x = -Math.PI / 2; gnd.position.y = -0.01; sc.add(gnd);
-        var model = (type === 'goop') ? buildGoop() : buildModularMan();
+        var model = (type === 'goop') ? buildGoop() : (type === 'goop-man') ? buildGoopMan() : buildModularMan();
         sc.add(model);
         previewScenes[type] = { scene: sc, camera: cam, renderer: r, model: model };
     }
@@ -546,8 +270,7 @@
 
     // === MAIN THREE.JS SCENE ===
     var scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 0, 75);
+    // Background and fog are now set by shared-environment.js
     var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 1, 0);
     var renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -555,88 +278,17 @@
     renderer.setPixelRatio(window.devicePixelRatio); renderer.shadowMap.enabled = true;
     container.insertBefore(renderer.domElement, document.getElementById('ui-layer'));
 
-    scene.add(new THREE.AmbientLight(0x6688cc, 0.5));
-    scene.add(new THREE.HemisphereLight(0xaaccff, 0x44aa44, 0.6));
-    var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(10, 20, 10); dirLight.castShadow = true;
-    dirLight.shadow.camera.top = 30; dirLight.shadow.camera.bottom = -30;
-    dirLight.shadow.camera.left = -30; dirLight.shadow.camera.right = 30;
-    scene.add(dirLight);
+    // Environment, lighting, and terrain are now handled by shared-environment.js
+    if (window.setupSharedEnvironment) {
+        window.setupSharedEnvironment(scene, renderer, camera);
+    }
 
     function getTerrainHeight(x, z) {
-        if (Math.abs(x) < 3 && Math.abs(z) < 3) return 0;
-        return (Math.sin(x * 0.2) * Math.cos(-z * 0.2)) * 0.8 + (Math.sin(x * 0.05) * Math.cos(-z * 0.05)) * 3.0;
-    }
-
-    function buildEnvironment() {
-        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.4, 1.5, 7);
-        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3219, roughness: 1.0 });
-        const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.9 });
-        const darkLeafMat = new THREE.MeshStandardMaterial({ color: 0x1f401b, roughness: 0.9 });
-
-        for (let i = 0; i < 200; i++) {
-            const tx = (Math.random() - 0.5) * 200;
-            const tz = (Math.random() - 0.5) * 200;
-            if (Math.abs(tx) < 8 && Math.abs(tz) < 8) continue;
-            
-            const th = getTerrainHeight(tx, tz);
-            const tree = new THREE.Group();
-            
-            const trunkH = 1.0 + Math.random() * 2.0;
-            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-            trunk.scale.y = trunkH / 1.5;
-            trunk.position.y = trunkH / 2;
-            trunk.castShadow = true;
-            tree.add(trunk);
-
-            const canopyR = 1.0 + Math.random() * 1.5;
-            const mat = Math.random() > 0.5 ? leafMat : darkLeafMat;
-            const canopy = new THREE.Mesh(new THREE.SphereGeometry(canopyR, 8, 6), mat);
-            canopy.position.y = trunkH + canopyR * 0.5;
-            canopy.scale.y = 0.7 + Math.random() * 0.3;
-            canopy.castShadow = true;
-            tree.add(canopy);
-
-            if (Math.random() > 0.4) {
-                const sub = new THREE.Mesh(new THREE.SphereGeometry(canopyR * 0.6, 8, 6), mat);
-                sub.position.set((Math.random() - 0.5) * canopyR, trunkH + canopyR * 0.2, (Math.random() - 0.5) * canopyR);
-                sub.castShadow = true;
-                tree.add(sub);
-            }
-
-            tree.position.set(tx, th, tz);
-            tree.rotation.y = Math.random() * Math.PI * 2;
-            tree.rotation.z = (Math.random() - 0.5) * 0.15;
-            tree.rotation.x = (Math.random() - 0.5) * 0.15;
-            scene.add(tree);
+        if (window.getSharedTerrainHeight) {
+            return window.getSharedTerrainHeight(x, z);
         }
+        return 0;
     }
-
-    const floorGeo = new THREE.PlaneGeometry(250, 250, 250, 250);
-    const pos = floorGeo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        if (Math.abs(x) < 3 && Math.abs(y) < 3) continue;
-        const z = (Math.sin(x * 0.2) * Math.cos(y * 0.2)) * 0.8 + (Math.sin(x * 0.05) * Math.cos(y * 0.05)) * 3.0;
-        pos.setZ(i, z);
-    }
-    floorGeo.computeVertexNormals();
-
-    const floor = new THREE.Mesh(
-        floorGeo,
-        new THREE.MeshStandardMaterial({ 
-            color: 0x3a7a2a, 
-            roughness: 0.9, 
-            metalness: 0.0, 
-            flatShading: true 
-        })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    buildEnvironment();
 
     // Pointer Lock & Marching Panel
     var PI_2 = Math.PI / 2;
@@ -686,7 +338,7 @@
         if (!isLocked && isPlaying) chatInput.focus();
         
         if (mPanel) {
-            mPanel.style.display = (!isLocked && isPlaying && selectedChar === 'goop') ? 'block' : 'none';
+            mPanel.style.display = (!isLocked && isPlaying && selectedChar === 'goop-man') ? 'block' : 'none';
         }
         if (dPanel) {
             dPanel.style.display = (!isLocked && isPlaying && selectedChar === 'modular') ? 'block' : 'none';
@@ -876,7 +528,7 @@
         loginPanel.style.display = 'none'; chatBox.style.display = 'block'; isPlaying = true;
         var me = data.players[myId];
         
-        myCharacter = (selectedChar === 'goop') ? buildGoop() : buildModularMan();
+        myCharacter = (selectedChar === 'goop') ? buildGoop() : (selectedChar === 'goop-man') ? buildGoopMan() : buildModularMan();
         myCharacter.position.set(me.x, me.y, me.z);
         scene.add(myCharacter);
         scene.add(camRig);
@@ -890,7 +542,7 @@
     socket.on('playerJoined', function (p) {
         if (p.id !== myId) {
             createPlayer(p.id, p);
-            addChatMessage('System', p.username + ' joined as ' + (p.charType === 'goop' ? 'The Goop' : 'Modular Man'), 0xaaaaaa);
+            addChatMessage('System', p.username + ' joined as ' + (p.charType === 'goop' ? 'The Goop' : (p.charType === 'goop-man' ? 'Goop Man' : 'Modular Man')), 0xaaaaaa);
         }
     });
     socket.on('playerLeft', function (id) {
@@ -937,7 +589,7 @@
 
     function createPlayer(id, data) {
         var charType = data.charType || 'modular';
-        var mesh = (charType === 'goop') ? buildGoop() : buildModularMan();
+        var mesh = (charType === 'goop') ? buildGoop() : (charType === 'goop-man') ? buildGoopMan() : buildModularMan();
         mesh.position.set(data.x, data.y, data.z);
         scene.add(mesh);
         var tag = document.createElement('div'); tag.textContent = data.username;
@@ -948,185 +600,8 @@
         players[id] = { mesh: mesh, nametag: tag, targetPos: new THREE.Vector3(data.x, data.y, data.z), targetRy: data.ry || 0, userData: data, charType: charType };
     }
 
-    function animateCharacter(mesh, charType, isMoving, isSprinting, isCrouching, jumpTime, t, delta, speedStr, inventory, shootTime, camPitch) {
-        inventory = inventory || 0;
-        camPitch = camPitch || 0;
-        shootTime = shootTime || 0;
-        if (mesh.userData.bp) {
-            // Use direct refs stored at build time (like Unified Workspace bodyParts.*)
-            var bp = mesh.userData.bp;
-            var pelvis = bp.pelvis, torso = bp.torso, head = bp.head;
-            var legL = bp.legL, legR = bp.legR, armL = bp.armL, armR = bp.armR;
-
-            if (mesh.userData.useFBX) {
-                if (mesh.userData.mixer) {
-                    var targetAction = mesh.userData.actions.idle;
-                    if (isMoving) targetAction = isSprinting ? mesh.userData.actions.run : mesh.userData.actions.walk;
-                    
-                    if (mesh.userData.currentAction !== targetAction) {
-                        mesh.userData.currentAction.fadeOut(0.2);
-                        targetAction.reset().fadeIn(0.2).play();
-                        mesh.userData.currentAction = targetAction;
-                    }
-                    mesh.userData.mixer.update(delta);
-                }
-            } else {
-                // --- EXACT resetPose from Unified Workspace ---
-                pelvis.position.y = 0.9;
-                pelvis.position.z = 0;
-                torso.rotation.x = 0; torso.rotation.y = 0; torso.scale.y = 1.0;
-                if (head) { head.rotation.x = 0; head.rotation.y = 0; }
-                legL.rotation.x = 0; legR.rotation.x = 0;
-                legL.calf.rotation.x = 0; legR.calf.rotation.x = 0;
-                legL.foot.rotation.x = 0; legR.foot.rotation.x = 0;
-                armL.rotation.x = 0; armL.rotation.z = 0; armL.lower.rotation.x = 0;
-                armR.rotation.x = 0; armR.rotation.z = 0; armR.lower.rotation.x = 0;
-
-                let thighRot = 0;
-                let calfRot = 0;
-                if (isCrouching) {
-                    thighRot = -1.2;
-                    calfRot = 1.9;
-                    
-                    legL.rotation.x = thighRot;
-                    legR.rotation.x = thighRot;
-                    legL.calf.rotation.x = calfRot;
-                    legR.calf.rotation.x = calfRot;
-                    
-                    torso.rotation.x = -0.4;
-                    armL.rotation.x = 0.6;
-                    armR.rotation.x = 0.6;
-                }
-
-                const legH = 0.45 * (state.legs || 1.0);
-                const footH = 0.09 * (state.legs || 1.0);
-                const currentPelvisY = legH * Math.cos(thighRot) + legH * Math.cos(thighRot + calfRot) + footH;
-                pelvis.position.y = currentPelvisY;
-
-                // --- EXACT walk/run animation from Unified Workspace (line 2582-2604) ---
-                if (isMoving) {
-                    var speed = isSprinting ? 14 : 8;
-                    var amp = isSprinting ? 0.9 : 0.5;
-                    var phase = t * speed;
-                    legL.rotation.x += Math.sin(phase) * amp;
-                    legR.rotation.x += Math.sin(phase + Math.PI) * amp;
-                    legL.calf.rotation.x += Math.max(0, Math.sin(phase - 1.2)) * amp * 2.2;
-                    legR.calf.rotation.x += Math.max(0, Math.sin(phase + Math.PI - 1.2)) * amp * 2.2;
-                    armL.rotation.x = Math.sin(phase + Math.PI) * amp;
-                    armR.rotation.x = Math.sin(phase) * amp;
-
-                    if (jumpTime < 0) {
-                        var bobAmt = isSprinting ? 0.12 : 0.05;
-                        pelvis.position.y += (Math.cos(phase * 2) * -0.5 + 0.5) * bobAmt;
-                    }
-                    torso.rotation.x += isSprinting ? 0.3 : 0.05;
-                    torso.rotation.y = Math.sin(phase) * 0.15;
-                } else {
-                    // --- EXACT idle from Unified Workspace (line 2699-2703) ---
-                    var breath = Math.sin(t * 2);
-                    torso.scale.y = 1.0 + breath * 0.012;
-                    armL.rotation.z = 0.15 + breath * 0.02;
-                    armR.rotation.z = -0.15 - breath * 0.02;
-                }
-
-                // --- EXACT flat feet from Unified Workspace (line 2602-2604) ---
-                legL.foot.rotation.x = -(legL.rotation.x + legL.calf.rotation.x);
-                legR.foot.rotation.x = -(legR.rotation.x + legR.calf.rotation.x);
-
-                // --- EXACT jump from Unified Workspace (line 2572-2580) ---
-                if (jumpTime >= 0) {
-                    legL.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
-                    legR.rotation.x = -0.4 * Math.sin(Math.min(jumpTime, 1) * Math.PI) * 1.3;
-                }
-            } // end procedural
-
-            // Weapon visibility
-            if (bp.gun) {
-                bp.gun.visible = (inventory === 1);
-            }
-
-            // --- ARC RAIDERS UPPER BODY AIMING ---
-            let appliedTorsoPitch = camPitch * 0.2;
-            
-            // Aiming Inventory Overrides (applied even with FBX to control aiming)
-            if (inventory === 1) { // Gun
-                armR.rotation.x = -Math.PI / 2 + (camPitch - appliedTorsoPitch);
-                if (shootTime > 0) {
-                    armR.rotation.x -= Math.sin((shootTime / 0.15) * Math.PI) * 0.4;
-                }
-                armR.rotation.z = -0.05;
-                armR.rotation.y = 0.2;
-
-                armL.rotation.x = -0.8 + (camPitch - appliedTorsoPitch); // Lower, tucked support hand
-                armL.lower.rotation.x = -0.9;  // Elbow bent, hand near chest
-                armL.rotation.z = 0.25;  // Kept close to body
-                armL.rotation.y = -0.1;
-            }
-        }
-
-        if (charType === 'goop' && mesh.userData.marchingCubes) {
-            var marchingCubes = mesh.userData.marchingCubes;
-            marchingCubes.reset();
-            const actualDomainSize = marchingCubes.scale.x * 2.0;
-            const P = marchingCubes.position;
-
-            mesh.traverse((child) => {
-                if (child.isMesh && child.userData.isGoop) {
-                    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
-                    const bbox = child.geometry.boundingBox;
-                    
-                    const height = bbox.max.y - bbox.min.y;
-                    const width = bbox.max.x - bbox.min.x;
-                    const depth = bbox.max.z - bbox.min.z;
-                    
-                    let radius = 0.07; 
-                    if (child.name === 'torso') radius = 0.13;
-                    else if (child.name === 'head') radius = 0.11;
-                    else if (child.name === 'pelvis') radius = 0.09;
-                    else if (child.name === 'foot' || child.name === 'hand') radius = 0.08;
-                    
-                    const primaryDim = Math.max(width, height, depth);
-                    const numBalls = Math.max(1, Math.ceil(primaryDim / (radius * 0.75)));
-
-                    // Multiply size by a baseline factor for isolation 80
-                    const size = 110 * Math.pow(radius / actualDomainSize, 2);
-
-                    for (let i = 0; i <= numBalls; i++) {
-                        const t_ball = numBalls === 0 ? 0.5 : i / numBalls;
-                        const center = new THREE.Vector3();
-                        
-                        if (child.name === 'pelvis') {
-                            // Spread horizontally along X
-                            center.x = bbox.min.x + width * t_ball;
-                            center.y = (bbox.max.y + bbox.min.y) / 2;
-                            center.z = (bbox.max.z + bbox.min.z) / 2;
-                        } else if (child.name === 'foot') {
-                            // Spread forward/backward along Z
-                            center.x = (bbox.max.x + bbox.min.x) / 2;
-                            center.y = (bbox.max.y + bbox.min.y) / 2;
-                            center.z = bbox.min.z + depth * t_ball;
-                        } else {
-                            // Spread vertically along Y
-                            center.x = (bbox.max.x + bbox.min.x) / 2;
-                            center.z = (bbox.max.z + bbox.min.z) / 2;
-                            center.y = bbox.min.y + height * t_ball;
-                        }
-                        
-                        const localCenter = center.clone();
-                        child.localToWorld(localCenter);
-                        const localPos = mesh.worldToLocal(localCenter);
-                        
-                        const mappedX = (localPos.x - P.x) / actualDomainSize + 0.5;
-                        const mappedY = (localPos.y - P.y) / actualDomainSize + 0.5;
-                        const mappedZ = (localPos.z - P.z) / actualDomainSize + 0.5;
-                        
-                        marchingCubes.addBall(mappedX, mappedY, mappedZ, size, 12, 1.0);
-                    }
-                }
-            });
-            marchingCubes.update();
-        }
-    }
+    // animateCharacter function has been removed.
+    // It is now dynamically pulled from shared-characters.js hosted by 3D-Unified-Workspace!
 
     function animate() {
         if (!isPlaying) return;
