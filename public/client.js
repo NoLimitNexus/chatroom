@@ -35,7 +35,7 @@
         isCrouching: false,
         legs: 1.0,
         baseY: 0,
-        inventory: 1,
+        inventory: 0,
         shootTime: 0,
         tracers: []
     };
@@ -596,7 +596,7 @@
         tag.style.cssText = 'position:absolute;color:white;background:rgba(0,0,0,.6);padding:3px 8px;border-radius:4px;pointer-events:none;font:600 11px Inter,sans-serif;transform:translate(-50%,-50%);white-space:nowrap;';
         document.getElementById('ui-layer').appendChild(tag);
         data.id = id;
-        data.inventory = 1;
+        data.inventory = 0;
         players[id] = { mesh: mesh, nametag: tag, targetPos: new THREE.Vector3(data.x, data.y, data.z), targetRy: data.ry || 0, userData: data, charType: charType };
     }
 
