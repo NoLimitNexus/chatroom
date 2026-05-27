@@ -627,6 +627,9 @@
         requestAnimationFrame(animate);
         var time = performance.now(), delta = Math.min((time - prevTime) / 1000, 0.1), t = time * 0.001;
         
+        if (window.sharedWater) {
+            window.sharedWater.material.uniforms['time'].value += delta;
+        }
         if (isLocked && myCharacter) {
             // --- EXACT input from Unified Workspace (line 2469-2470) ---
             var moveZ = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
