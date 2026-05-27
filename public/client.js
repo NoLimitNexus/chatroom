@@ -441,7 +441,7 @@
         }
 
         setTimeout(() => {
-            if (bp && bp.gun && flash) bp.gun.remove(flash);
+            if (gunObj && flash) gunObj.remove(flash);
             else if (shooterObj.userData.rightEye && flash) shooterObj.userData.rightEye.remove(flash);
             flashGeo.dispose(); flashMat.dispose();
         }, 50);
