@@ -353,6 +353,12 @@
         console.log("Campfire class found, initializing...");
         globalCampfire = new window.Campfire();
         
+        // Apply user requested settings
+        globalCampfire.config.emissionRate = 100;
+        globalCampfire.config.size = 3;       // 0.20 * 15
+        globalCampfire.config.speed = 0.80;
+        globalCampfire.config.spread = 0.56;
+        
         // Add a debug glowing box to make it SUPER visible in case of shader issues
         const dbgGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
         const dbgMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true });
@@ -361,12 +367,21 @@
         globalCampfire.group.add(dbgMesh);
         
         setTimeout(() => {
-            const h = getTerrainHeight(0, 0);
-            globalCampfire.group.position.set(0, h + 0.1, 0);
+            let cx = 0, cz = 0;
+            if (myCharacter) {
+                // Place it 3 units in front of the player's spawn
+                const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(myCharacter.quaternion);
+                cx = myCharacter.position.x + dir.x * 3;
+                cz = myCharacter.position.z + dir.z * 3;
+            }
+            const h = getTerrainHeight(cx, cz);
+            // Ensure it's not sunken under water (water is at -1.5)
+            const finalY = Math.max(h, -1.0) + 0.1;
+            globalCampfire.group.position.set(cx, finalY, cz);
             scene.add(globalCampfire.group);
-            console.log("Campfire added to scene at", 0, h + 0.1, 0);
+            console.log("Campfire added to scene at", cx, finalY, cz);
             if (typeof addChatMessage === 'function') {
-                addChatMessage('System', 'Campfire has spawned at 0,0.', 0xffaa00);
+                addChatMessage('System', `Campfire has spawned at ${Math.round(cx)}, ${Math.round(cz)}.`, 0xffaa00);
             }
         }, 500);
     } else {
