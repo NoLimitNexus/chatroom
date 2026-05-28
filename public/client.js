@@ -29,48 +29,34 @@
         raw_shrimp: { id: 'raw_shrimp', name: 'Raw Shrimp', color: 0xffbdde, icon: 'assets/icons/fish/shrimp.png' },
         raw_trout: { id: 'raw_trout', name: 'Raw Trout', color: 0xa8a8a8, icon: 'assets/icons/fish/trout.png' }
     };
-    var playerItems = [];
+    var playerItems = new Array(20).fill(null);
     var fishingSpots = [];
     var vfxOrbs = [];
     var raycaster = new THREE.Raycaster();
     
     function updateInventoryUI() {
-        var invContainer = document.getElementById('inventory-ui');
         var invGrid = document.getElementById('inventory-grid');
-        if (!invContainer || !invGrid) return;
+        if (!invGrid) return;
         
-        if (playerItems.length > 0) invContainer.style.display = 'block';
-        else invContainer.style.display = 'none';
-
         invGrid.innerHTML = '';
-        playerItems.forEach(item => {
+        for (let i = 0; i < 20; i++) {
+            const item = playerItems[i];
             var el = document.createElement('div');
-            el.style.cssText = 'background:rgba(255,255,255,0.1); border:1px solid #3b82f6; border-radius:4px; padding:5px; text-align:center;';
-            el.innerHTML = '<img src="' + item.icon + '" style="width:32px; height:32px; object-fit:contain;"><div style="font-size:10px; margin-top:2px;">' + item.name + '</div>';
+            el.style.cssText = 'background:rgba(255,255,255,0.1); border:1px solid #3b82f6; border-radius:4px; width:44px; height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden;';
+            if (item) {
+                el.innerHTML = '<img src="' + item.icon + '" style="width:24px; height:24px; object-fit:contain;"><div style="font-size:8px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center;">' + item.name + '</div>';
+            }
             invGrid.appendChild(el);
-        });
+        }
     }
+    
+    // Call once to generate the empty grid slots immediately
+    document.addEventListener("DOMContentLoaded", () => setTimeout(updateInventoryUI, 500));
 
     function createFishingSpot() {
         const group = new THREE.Group();
         group.userData.interactable = true;
         group.userData.action = 'fishing';
-
-        const rockCount = 12;
-        const radius = 1.0;
-        const rockGeo = new THREE.DodecahedronGeometry(0.3, 0);
-        const rockMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, roughness: 0.9, flatShading: true });
-
-        for (let i = 0; i < rockCount; i++) {
-            const rock = new THREE.Mesh(rockGeo, rockMat);
-            const angle = (i / rockCount) * Math.PI * 2;
-            const r = radius + (Math.random() - 0.5) * 0.2;
-            rock.position.set(Math.cos(angle) * r, 0.1, Math.sin(angle) * r);
-            const s = 0.8 + Math.random() * 0.5;
-            rock.scale.set(s, s * 0.6, s);
-            rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            group.add(rock);
-        }
 
         const light = new THREE.PointLight(0x4fc3f7, 2, 4);
         light.position.set(0, 1, 0);
@@ -84,7 +70,7 @@
             const bubble = new THREE.Mesh(bubbleGeo, bubbleMat.clone());
             const r = 0.8 * Math.sqrt(Math.random());
             const theta = Math.random() * 2 * Math.PI;
-            bubble.position.set(r * Math.cos(theta), 0.2, r * Math.sin(theta));
+            bubble.position.set(r * Math.cos(theta), 0.0, r * Math.sin(theta));
             bubble.userData = { speed: 0.3 + Math.random() * 0.4, initialX: bubble.position.x, initialZ: bubble.position.z, offset: Math.random() * Math.PI * 2, amp: 0.05 };
             group.add(bubble);
             bubbles.push(bubble);
@@ -370,8 +356,8 @@
             const tx = (Math.random() - 0.5) * 200;
             const tz = (Math.random() - 0.5) * 200;
             const th = getTerrainHeight(tx, tz);
-            // Coastline is where terrain dips just below water level (-1.2)
-            if (th < -1.1 && th > -1.35) {
+            // Spawn spots strictly underwater (water is at -1.2) to avoid grass
+            if (th < -1.25 && th > -1.6) {
                 let overlap = false;
                 for (let s of fishingSpots) {
                     if (s.position.distanceTo(new THREE.Vector3(tx, -1.2, tz)) < 6.0) overlap = true;
@@ -607,17 +593,23 @@
                                 
                                 // Pick fish
                                 const fishType = Math.random() > 0.4 ? GAME_ITEMS.raw_shrimp : GAME_ITEMS.raw_trout;
-                                playerItems.push(fishType);
-                                updateInventoryUI();
-                                addChatMessage('System', 'You caught a ' + fishType.name + '!', 0x4fc3f7);
+                                
+                                const emptyIdx = playerItems.indexOf(null);
+                                if (emptyIdx !== -1) {
+                                    playerItems[emptyIdx] = fishType;
+                                    updateInventoryUI();
+                                    addChatMessage('System', 'You caught a ' + fishType.name + '!', 0x4fc3f7);
 
-                                // VFX Orb
-                                const orbGeo = new THREE.SphereGeometry(0.2, 8, 8);
-                                const orbMat = new THREE.MeshBasicMaterial({ color: fishType.color });
-                                const orb = new THREE.Mesh(orbGeo, orbMat);
-                                orb.position.copy(spotGroup.position).add(new THREE.Vector3(0, 0.5, 0));
-                                scene.add(orb);
-                                vfxOrbs.push({ mesh: orb, target: myCharacter, life: 1.0 });
+                                    // VFX Orb
+                                    const orbGeo = new THREE.SphereGeometry(0.2, 8, 8);
+                                    const orbMat = new THREE.MeshBasicMaterial({ color: fishType.color });
+                                    const orb = new THREE.Mesh(orbGeo, orbMat);
+                                    orb.position.copy(spotGroup.position).add(new THREE.Vector3(0, 0.5, 0));
+                                    scene.add(orb);
+                                    vfxOrbs.push({ mesh: orb, target: myCharacter, life: 1.0 });
+                                } else {
+                                    addChatMessage('System', 'Your inventory is full!', 0xff4444);
+                                }
                             }
                         } else {
                             addChatMessage('System', 'Too far away to fish!', 0xff4444);
@@ -776,7 +768,7 @@
                         b.material.opacity -= delta * 3.0;
                         if (b.material.opacity <= 0) {
                             b.userData.popping = false;
-                            b.position.y = 0.2;
+                            b.position.y = 0.0;
                             b.scale.setScalar(1.0);
                             b.material.opacity = 0.7;
                             const r = 0.8 * Math.sqrt(Math.random());
@@ -791,7 +783,7 @@
                     b.position.y += b.userData.speed * delta;
                     b.position.x = b.userData.initialX + Math.cos(t * 3 + b.userData.offset) * b.userData.amp;
                     b.position.z = b.userData.initialZ + Math.sin(t * 3 + b.userData.offset) * b.userData.amp;
-                    if (b.position.y > 1.2) b.userData.popping = true;
+                    if (b.position.y > 1.0) b.userData.popping = true;
                 });
             }
         });
