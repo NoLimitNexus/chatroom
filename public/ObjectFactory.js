@@ -478,12 +478,35 @@ window.ObjectFactory = {
             fsHit.userData = group.userData;
             fsHit.userData.parentGroup = group;
             group.add(fsHit);
-            // Only light pulse for the updatable (bubbles handled by game loop)
             updatable = {
                 _light: spotLight,
+                _bubbles: bubbles,
                 update: function(dt) {
                     const t = Date.now() * 0.001;
                     this._light.intensity = 1.2 + Math.sin(t * 3) * 0.4;
+                    this._bubbles.forEach(b => {
+                        if (b.userData.popping) {
+                            b.scale.addScalar(dt * 8.0);
+                            b.material.opacity -= dt * 3.0;
+                            if (b.material.opacity <= 0) {
+                                b.userData.popping = false;
+                                b.position.y = 0.0;
+                                b.scale.setScalar(1.0);
+                                b.material.opacity = 0.7;
+                                const r = 0.8 * Math.sqrt(Math.random());
+                                const theta = Math.random() * 2 * Math.PI;
+                                b.userData.initialX = r * Math.cos(theta);
+                                b.userData.initialZ = r * Math.sin(theta);
+                                b.position.x = b.userData.initialX;
+                                b.position.z = b.userData.initialZ;
+                            }
+                            return;
+                        }
+                        b.position.y += b.userData.speed * dt;
+                        b.position.x = b.userData.initialX + Math.cos(t * 3 + b.userData.offset) * b.userData.amp;
+                        b.position.z = b.userData.initialZ + Math.sin(t * 3 + b.userData.offset) * b.userData.amp;
+                        if (b.position.y > 1.0) b.userData.popping = true;
+                    });
                 }
             };
             break;

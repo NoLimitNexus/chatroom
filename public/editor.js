@@ -834,22 +834,20 @@ function animate() {
             );
         }
 
-        // Handle remote fishing
-        if (p.userData.isFishing) {
-            if (window.ObjectFactory) {
+        if (window.ObjectFactory) {
+            if (p.userData.isFishing) {
                 window.ObjectFactory.attachFishingRodToPlayer(p.mesh, scene);
-                if (p.userData.fishingRodData) {
+                if (p.mesh.userData.fishingRodData) {
+                    p.mesh.userData.fishingRodData.tugPhase += dt;
                     const waterTarget = new THREE.Vector3(
-                        p.mesh.position.x + Math.sin(p.mesh.rotation.y) * 4.0,
+                        p.mesh.position.x + Math.sin(t * 0.5) * 0.3,
                         -1.0 + Math.sin(t * 1.5) * 0.05,
-                        p.mesh.position.z + Math.cos(p.mesh.rotation.y) * 4.0
+                        p.mesh.position.z + 1.0 + Math.cos(t * 0.5) * 0.3
                     );
-                    const catchProgress = 0.5 + Math.sin(t) * 0.2; // simulate variable tension
-                    window.ObjectFactory.animateFishingRod(p.userData.fishingRodData, p.mesh, waterTarget, t, catchProgress);
+                    const catchProgress = 0.5 + Math.sin(t) * 0.2; 
+                    window.ObjectFactory.animateFishingRod(p.mesh.userData.fishingRodData, p.mesh, waterTarget, t, catchProgress);
                 }
-            }
-        } else {
-            if (window.ObjectFactory) {
+            } else {
                 window.ObjectFactory.detachFishingRodFromPlayer(p.mesh, scene);
             }
         }

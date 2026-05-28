@@ -255,7 +255,7 @@
             autoFishing.active = true;
             autoFishing.spotGroup = pickup;
             autoFishing.timer = 0;
-            attachFishingRod();
+            if (window.ObjectFactory) ObjectFactory.attachFishingRodToPlayer(myCharacter, scene);
             collectFish(pickup);
             if (autoFishing.active) addChatMessage('System', 'Fishing... move away to stop.', 0x4fc3f7);
         } else if (pickup.userData && pickup.userData.type === 'Campfire') {
@@ -1147,33 +1147,7 @@
             });
         }
         // --- FISHING SPOTS BUBBLES ---
-        fishingSpots.forEach(group => {
-            if (group.userData.bubbles && myCharacter && group.position.distanceTo(myCharacter.position) < 50) {
-                group.userData.bubbles.forEach(b => {
-                    if (b.userData.popping) {
-                        b.scale.addScalar(delta * 8.0);
-                        b.material.opacity -= delta * 3.0;
-                        if (b.material.opacity <= 0) {
-                            b.userData.popping = false;
-                            b.position.y = 0.0;
-                            b.scale.setScalar(1.0);
-                            b.material.opacity = 0.7;
-                            const r = 0.8 * Math.sqrt(Math.random());
-                            const theta = Math.random() * 2 * Math.PI;
-                            b.userData.initialX = r * Math.cos(theta);
-                            b.userData.initialZ = r * Math.sin(theta);
-                            b.position.x = b.userData.initialX;
-                            b.position.z = b.userData.initialZ;
-                        }
-                        return;
-                    }
-                    b.position.y += b.userData.speed * delta;
-                    b.position.x = b.userData.initialX + Math.cos(t * 3 + b.userData.offset) * b.userData.amp;
-                    b.position.z = b.userData.initialZ + Math.sin(t * 3 + b.userData.offset) * b.userData.amp;
-                    if (b.position.y > 1.0) b.userData.popping = true;
-                });
-            }
-        });
+        // Bubbles are now animated by the updatable object created in ObjectFactory.js
 
         // --- AUTO-FISHING LOOP + ROD ANIMATION ---
         if (autoFishing.active && autoFishing.spotGroup && myCharacter) {
@@ -1190,7 +1164,7 @@
                 }
 
                 // --- Animate fishing rod ---
-                if (myCharacter.userData.fishingRodData) {
+                if (myCharacter.userData.fishingRodData && autoFishing.spotGroup) {
                     myCharacter.userData.fishingRodData.tugPhase += delta;
                     const catchProgress = autoFishing.timer / autoFishing.interval; // 0→1
                     

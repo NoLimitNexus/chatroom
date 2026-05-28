@@ -114,6 +114,12 @@ io.on('connection', (socket) => {
             players[socket.id].y = movementData.y;
             players[socket.id].z = movementData.z;
             players[socket.id].ry = movementData.ry;
+            players[socket.id].inventory = movementData.inventory;
+            players[socket.id].isFishing = movementData.isFishing;
+            players[socket.id].isCooking = movementData.isCooking;
+            players[socket.id].camPitch = movementData.camPitch;
+            players[socket.id].useFBX = movementData.useFBX;
+
             socket.broadcast.emit('playerMoved', { 
                 id: socket.id, 
                 x: movementData.x, 
@@ -128,7 +134,9 @@ io.on('connection', (socket) => {
                 localVz: movementData.localVz,
                 inventory: movementData.inventory,
                 camPitch: movementData.camPitch,
-                useFBX: movementData.useFBX
+                useFBX: movementData.useFBX,
+                isFishing: movementData.isFishing,
+                isCooking: movementData.isCooking
             });
         }
     });
