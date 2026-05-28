@@ -51,8 +51,15 @@ app.post('/api/map', (req, res) => {
 // Store player state
 const players = {};
 
+// Store global dropped items
+const droppedItemsNetwork = {};
+let itemCounter = 0;
+
 io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
+
+    // Send initial dropped items to any connecting client (including editor)
+    socket.emit('initDroppedItems', droppedItemsNetwork);
 
     // Editor can request current player snapshot without joining as a player
     socket.on('editorRequestPlayers', () => {
@@ -68,7 +75,8 @@ io.on('connection', (socket) => {
             z: Math.random() * 20 - 10,
             color: Math.floor(Math.random() * 0xffffff),
             username: 'Guest_' + Math.floor(Math.random() * 1000),
-            charType: 'modular' // default character type
+            charType: 'modular', // default character type
+            inventory: 0 // Default to hands (no gun)
         };
 
         // Support both old string format and new object format
@@ -84,6 +92,19 @@ io.on('connection', (socket) => {
         // Tell everyone else about the new player
         socket.broadcast.emit('playerJoined', { id: socket.id, ...players[socket.id] });
         console.log(`${players[socket.id].username} joined as ${players[socket.id].charType}`);
+    });
+
+    socket.on('itemDropped', (data) => {
+        const itemId = 'item_' + itemCounter++;
+        droppedItemsNetwork[itemId] = { ...data, itemId };
+        io.emit('itemDropped', droppedItemsNetwork[itemId]);
+    });
+
+    socket.on('itemPickedUp', (itemId) => {
+        if (droppedItemsNetwork[itemId]) {
+            delete droppedItemsNetwork[itemId];
+            io.emit('itemPickedUp', itemId);
+        }
     });
 
     // Handle movement

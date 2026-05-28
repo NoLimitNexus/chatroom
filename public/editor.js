@@ -50,6 +50,7 @@ if (window.setupSharedEnvironment) {
 // STATE
 // ============================================================
 let environmentObjects = [];
+let droppedItems = [];
 let updatables = [];
 let selectedObject = null;
 const raycaster = new THREE.Raycaster();
@@ -618,6 +619,51 @@ socket.on('playerJoined', function(data) {
         addEditorChat('System', data.username + ' joined the game', '#10b981');
     }
 });
+
+function spawnDroppedItem(data) {
+    const item = data.itemData;
+    const pickupGroup = new THREE.Group();
+    // Glowing sphere
+    const geo = new THREE.SphereGeometry(0.2, 10, 10);
+    const mat = new THREE.MeshStandardMaterial({
+        color: item.color, emissive: item.color, emissiveIntensity: 1.5,
+        transparent: true, opacity: 0.85, roughness: 0.2
+    });
+    const sphere = new THREE.Mesh(geo, mat);
+    pickupGroup.add(sphere);
+    // Halo
+    const haloGeo = new THREE.SphereGeometry(0.35, 10, 10);
+    const haloMat = new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: 0.15 });
+    pickupGroup.add(new THREE.Mesh(haloGeo, haloMat));
+    // Light
+    const light = new THREE.PointLight(item.color, 2, 5);
+    pickupGroup.add(light);
+
+    pickupGroup.position.set(data.position.x, data.position.y, data.position.z);
+    pickupGroup.userData.droppedItem = item;
+    pickupGroup.userData.itemId = data.itemId;
+    scene.add(pickupGroup);
+    droppedItems.push(pickupGroup);
+}
+
+socket.on('initDroppedItems', function(data) {
+    for (const id in data) {
+        spawnDroppedItem(data[id]);
+    }
+});
+
+socket.on('itemDropped', function(data) {
+    spawnDroppedItem(data);
+});
+
+socket.on('itemPickedUp', function(itemId) {
+    const idx = droppedItems.findIndex(p => p.userData.itemId === itemId);
+    if (idx > -1) {
+        scene.remove(droppedItems[idx]);
+        droppedItems.splice(idx, 1);
+    }
+});
+
 
 socket.on('playerMoved', function(d) {
     if (!livePlayers[d.id]) return;

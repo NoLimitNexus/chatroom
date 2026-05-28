@@ -226,20 +226,8 @@
         }
     }
 
-    // Drop item from inventory onto the 3D ground
-    function dropItemOnGround(idx) {
-        const item = playerItems[idx];
-        if (!item || !myCharacter) return;
-        playerItems[idx] = null;
-        updateInventoryUI();
-        addChatMessage('System', 'Dropped ' + item.name, 0xffaa00);
-
-        // Spawn 3D pickup in front of the player
-        const dropPos = myCharacter.position.clone();
-        const fwd = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), myCharacter.rotation.y);
-        dropPos.addScaledVector(fwd, 1.5);
-        dropPos.y = getTerrainHeight(dropPos.x, dropPos.z) + 0.3;
-
+    function spawnDroppedItem(data) {
+        const item = data.itemData;
         const pickupGroup = new THREE.Group();
         // Glowing sphere
         const geo = new THREE.SphereGeometry(0.2, 10, 10);
@@ -257,11 +245,29 @@
         const light = new THREE.PointLight(item.color, 2, 5);
         pickupGroup.add(light);
 
-        pickupGroup.position.copy(dropPos);
+        pickupGroup.position.set(data.position.x, data.position.y, data.position.z);
         pickupGroup.userData.droppedItem = item;
+        pickupGroup.userData.itemId = data.itemId;
         pickupGroup.userData.spawnTime = performance.now() * 0.001;
         scene.add(pickupGroup);
         droppedItems.push(pickupGroup);
+    }
+
+    // Drop item from inventory onto the 3D ground
+    function dropItemOnGround(idx) {
+        const item = playerItems[idx];
+        if (!item || !myCharacter) return;
+        playerItems[idx] = null;
+        updateInventoryUI();
+        addChatMessage('System', 'Dropped ' + item.name, 0xffaa00);
+
+        // Spawn 3D pickup in front of the player
+        const dropPos = myCharacter.position.clone();
+        const fwd = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), myCharacter.rotation.y);
+        dropPos.addScaledVector(fwd, 1.5);
+        dropPos.y = getTerrainHeight(dropPos.x, dropPos.z) + 0.3;
+
+        socket.emit('itemDropped', { itemData: item, position: { x: dropPos.x, y: dropPos.y, z: dropPos.z } });
     }
 
     let nearestInteractable = null;
@@ -269,7 +275,7 @@
     // Check dropped items near player to prompt pickup
     function checkPickupDroppedItems() {
         nearestInteractable = null;
-        if (!myCharacter || droppedItems.length === 0) {
+        if (!myCharacter || !isLocked) {
             updateInteractionPrompt();
             return;
         }
@@ -277,15 +283,36 @@
         let closestDist = Infinity;
         let closestItem = null;
 
+        // Check dropped items
         for (let i = droppedItems.length - 1; i >= 0; i--) {
             const pickup = droppedItems[i];
             const dist = myCharacter.position.distanceTo(pickup.position);
-            if (dist < 1.8 && dist < closestDist) {
+            if (dist < 2.5 && dist < closestDist) {
                 closestDist = dist;
                 closestItem = pickup;
             }
         }
         
+        // Check fishing spots
+        fishingSpots.forEach(s => {
+            const dist = myCharacter.position.distanceTo(s.position);
+            if (dist < 8.0 && dist < closestDist) {
+                closestDist = dist;
+                closestItem = s;
+            }
+        });
+
+        // Check campfires
+        environmentObjects.forEach(obj => {
+            if (obj.userData.type === 'Campfire') {
+                const dist = myCharacter.position.distanceTo(obj.position);
+                if (dist < 7.0 && dist < closestDist) {
+                    closestDist = dist;
+                    closestItem = obj;
+                }
+            }
+        });
+
         nearestInteractable = closestItem;
         updateInteractionPrompt();
     }
@@ -296,7 +323,16 @@
         
         if (nearestInteractable && !inventoryOpen) {
             promptEl.style.display = 'block';
-            document.getElementById('interaction-item-name').innerText = nearestInteractable.userData.droppedItem.name;
+            if (nearestInteractable.userData && nearestInteractable.userData.droppedItem) {
+                document.getElementById('interaction-action').innerText = 'pick up';
+                document.getElementById('interaction-item-name').innerText = nearestInteractable.userData.droppedItem.name;
+            } else if (nearestInteractable.userData && nearestInteractable.userData.action === 'fishing') {
+                document.getElementById('interaction-action').innerText = 'start';
+                document.getElementById('interaction-item-name').innerText = 'Fishing';
+            } else if (nearestInteractable.userData && nearestInteractable.userData.type === 'Campfire') {
+                document.getElementById('interaction-action').innerText = 'use';
+                document.getElementById('interaction-item-name').innerText = 'Campfire (Cook)';
+            }
         } else {
             promptEl.style.display = 'none';
         }
@@ -306,20 +342,40 @@
         if (!nearestInteractable) return;
         
         const pickup = nearestInteractable;
-        const emptyIdx = playerItems.indexOf(null);
-        if (emptyIdx !== -1) {
-            playerItems[emptyIdx] = pickup.userData.droppedItem;
-            updateInventoryUI();
-            addChatMessage('System', 'Picked up ' + pickup.userData.droppedItem.name, 0x4fc3f7);
-            spawnCollectionOrb(pickup.position.clone(), pickup.userData.droppedItem);
-            scene.remove(pickup);
-            const idx = droppedItems.indexOf(pickup);
-            if (idx > -1) droppedItems.splice(idx, 1);
-            
-            nearestInteractable = null;
-            updateInteractionPrompt();
-        } else {
-            addChatMessage('System', 'Inventory full!', 0xff0000);
+        
+        if (pickup.userData && pickup.userData.droppedItem) {
+            const emptyIdx = playerItems.indexOf(null);
+            if (emptyIdx !== -1) {
+                playerItems[emptyIdx] = pickup.userData.droppedItem;
+                updateInventoryUI();
+                addChatMessage('System', 'Picked up ' + pickup.userData.droppedItem.name, 0x4fc3f7);
+                spawnCollectionOrb(pickup.position.clone(), pickup.userData.droppedItem);
+                
+                socket.emit('itemPickedUp', pickup.userData.itemId);
+                nearestInteractable = null;
+                updateInteractionPrompt();
+            } else {
+                addChatMessage('System', 'Inventory full!', 0xff0000);
+            }
+        } else if (pickup.userData && pickup.userData.action === 'fishing') {
+            stopGathering();
+            autoFishing.active = true;
+            autoFishing.spotGroup = pickup;
+            autoFishing.timer = 0;
+            attachFishingRod();
+            collectFish(pickup);
+            if (autoFishing.active) addChatMessage('System', 'Fishing... move away to stop.', 0x4fc3f7);
+        } else if (pickup.userData && pickup.userData.type === 'Campfire') {
+            stopGathering();
+            autoCooking.active = true;
+            autoCooking.campfireGroup = pickup;
+            autoCooking.timer = 0;
+            if (cookOneFish(pickup)) {
+                addChatMessage('System', 'Cooking... move away to stop.', 0xff9800);
+            } else {
+                autoCooking.active = false;
+                addChatMessage('System', 'No raw fish to cook!', 0xff4444);
+            }
         }
     }
     
@@ -978,56 +1034,8 @@
         if (!isLocked || !myCharacter) return;
         if (e.button === 0) { // Left click
             if (state.inventory === 0) {
-                // HANDS: Raycast for fishing spots and campfires
-                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                let interactables = [];
-                fishingSpots.forEach(s => s.children.forEach(c => interactables.push(c)));
-                // Also include campfire objects for cooking
-                environmentObjects.forEach(obj => {
-                    if (obj.userData.type === 'Campfire') obj.traverse(c => { if (c.isMesh) interactables.push(c); });
-                });
-
-                const intersects = raycaster.intersectObjects(interactables, false);
-                if (intersects.length > 0) {
-                    const hit = intersects[0].object;
-                    // Check if it's a fishing spot
-                    const spotGroup = hit.userData.parentGroup || hit.parent;
-                    if (spotGroup && spotGroup.userData.action === 'fishing') {
-                        if (myCharacter.position.distanceTo(spotGroup.position) < 8.0) {
-                            // Stop cooking if active, start auto-fishing
-                            stopGathering();
-                            autoFishing.active = true;
-                            autoFishing.spotGroup = spotGroup;
-                            autoFishing.timer = 0;
-                            attachFishingRod();
-                            collectFish(spotGroup);
-                            addChatMessage('System', 'Fishing... move away to stop.', 0x4fc3f7);
-                        } else {
-                            addChatMessage('System', 'Too far away to fish!', 0xff4444);
-                        }
-                    }
-                    // Check if it's a campfire for auto-cooking
-                    else {
-                        let campfireGroup = hit;
-                        while (campfireGroup && campfireGroup.userData.type !== 'Campfire') campfireGroup = campfireGroup.parent;
-                        if (campfireGroup && campfireGroup.userData.type === 'Campfire') {
-                            if (myCharacter.position.distanceTo(campfireGroup.position) < 5.0) {
-                                // Stop fishing if active, start auto-cooking
-                                stopGathering();
-                                if (cookOneFish(campfireGroup)) {
-                                    autoCooking.active = true;
-                                    autoCooking.campfireGroup = campfireGroup;
-                                    autoCooking.timer = 0;
-                                    addChatMessage('System', 'Cooking... move away to stop.', 0xff9800);
-                                } else {
-                                    addChatMessage('System', 'No raw fish to cook!', 0xff9800);
-                                }
-                            } else {
-                                addChatMessage('System', 'Move closer to the campfire!', 0xff9800);
-                            }
-                        }
-                    }
-                }
+                // Hand attack placeholder
+                state.shootTime = 0.5;
             } else if (state.inventory === 1 || state.inventory === 2) {
                 if (state.shootTime <= 0) {
                     if (state.inventory === 1) shootGun(myCharacter, true);
@@ -1113,6 +1121,30 @@
         addChatMessage('System', 'Welcome, ' + me.username + '! Click to look. WASD to move. Space to jump.', 0xaaaaaa);
         requestAnimationFrame(animate);
     });
+    
+    socket.on('initDroppedItems', function(data) {
+        for (const id in data) {
+            spawnDroppedItem(data[id]);
+        }
+    });
+
+    socket.on('itemDropped', function(data) {
+        spawnDroppedItem(data);
+    });
+
+    socket.on('itemPickedUp', function(itemId) {
+        const idx = droppedItems.findIndex(p => p.userData.itemId === itemId);
+        if (idx > -1) {
+            const pickup = droppedItems[idx];
+            scene.remove(pickup);
+            droppedItems.splice(idx, 1);
+            if (nearestInteractable === pickup) {
+                nearestInteractable = null;
+                updateInteractionPrompt();
+            }
+        }
+    });
+
     socket.on('playerJoined', function (p) {
         if (p.id !== myId) {
             createPlayer(p.id, p);
@@ -1172,7 +1204,7 @@
         tag.style.cssText = 'position:absolute;color:white;background:rgba(0,0,0,.6);padding:3px 8px;border-radius:4px;pointer-events:none;font:600 11px Inter,sans-serif;transform:translate(-50%,-50%);white-space:nowrap;';
         document.getElementById('ui-layer').appendChild(tag);
         data.id = id;
-        data.inventory = 0;
+        data.inventory = data.inventory !== undefined ? data.inventory : 0;
         players[id] = { mesh: mesh, nametag: tag, targetPos: new THREE.Vector3(data.x, data.y, data.z), targetRy: data.ry || 0, userData: data, charType: charType };
     }
     // animateCharacter function has been removed.
@@ -1541,7 +1573,8 @@
             }
 
             if (p.userData && p.userData.shootTime > 0) p.userData.shootTime -= delta;
-            animateCharacter(p.mesh, p.charType, p.isMoving, p.isSprinting, p.isCrouching || false, p.jumpTime || -1, t, delta, Math.hypot(p.localVx || 0, p.localVz || 0), p.userData.inventory || 1, Math.max(0, p.userData.shootTime || 0), p.userData.camPitch || 0);
+            const inv = p.userData.inventory !== undefined ? p.userData.inventory : 0;
+            animateCharacter(p.mesh, p.charType, p.isMoving, p.isSprinting, p.isCrouching || false, p.jumpTime || -1, t, delta, Math.hypot(p.localVx || 0, p.localVz || 0), inv, Math.max(0, p.userData.shootTime || 0), p.userData.camPitch || 0);
 
             var vec = p.mesh.position.clone();
             vec.y += (p.charType === 'goop') ? 1.0 : 1.8;
