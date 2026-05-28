@@ -57,22 +57,20 @@ function instantiateObject(data) {
     let mesh;
     let updatable = null;
 
-    if (data.type === 'Campfire') {
-        // Campfire wrapper group
-        mesh = new THREE.Group();
-        mesh.userData.isCampfire = true;
-        mesh.userData.type = 'Campfire';
+    if (window.ObjectFactory) {
+        const factoryObj = window.ObjectFactory.create(data.type, data.config);
+        if (factoryObj) {
+            // Wrapper group for editor manipulation
+            mesh = new THREE.Group();
+            mesh.userData.isEnvironmentObject = true;
+            mesh.userData.type = data.type;
 
-        // Instantiate visual campfire
-        const campfire = new Campfire();
-        
-        // Pass saved config if exists
-        if (data.config) {
-            Object.assign(campfire.config, data.config);
-        }
-
-        mesh.add(campfire.mesh);
-        updatable = campfire;
+            mesh.add(factoryObj.group);
+            
+            if (factoryObj.updatable) {
+                updatable = factoryObj.updatable;
+                mesh.userData.updatable = factoryObj.updatable;
+            }
         
         // Add a hit box for raycasting since particles are hard to click
         const hitGeo = new THREE.CylinderGeometry(1, 1, 3, 8);
@@ -81,6 +79,13 @@ function instantiateObject(data) {
         hitBox.position.y = 1.5;
         mesh.add(hitBox);
         mesh.userData.hitBox = hitBox; // Reference for raycasting
+
+            // Add a BoxHelper for the editor to see bounds
+            const boxHelper = new THREE.BoxHelper(mesh, 0xffff00);
+            boxHelper.visible = false;
+            mesh.add(boxHelper);
+            mesh.userData.boxHelper = boxHelper;
+        }
     }
 
     if (mesh) {
@@ -174,8 +179,14 @@ window.addEventListener('pointerdown', (event) => {
 });
 
 function selectObject(obj) {
+    if (selectedObject && selectedObject.userData.boxHelper) {
+        selectedObject.userData.boxHelper.visible = false;
+    }
     selectedObject = obj;
     if (obj) {
+        if (obj.userData.boxHelper) {
+            obj.userData.boxHelper.visible = true;
+        }
         transformControl.attach(obj);
     } else {
         transformControl.detach();
@@ -218,9 +229,8 @@ document.getElementById('btn-delete').addEventListener('click', () => {
         transformControl.detach();
         environmentObjects = environmentObjects.filter(o => o !== selectedObject);
         // Remove from updatables if necessary
-        const campfireMesh = selectedObject.children.find(c => c.type === "Points" || c.type === "Group");
-        if (campfireMesh) {
-            updatables = updatables.filter(u => u.mesh !== campfireMesh);
+        if (selectedObject.userData.updatable) {
+            updatables = updatables.filter(u => u !== selectedObject.userData.updatable);
         }
         selectedObject = null;
         updateObjectList();

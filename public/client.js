@@ -353,19 +353,20 @@
     var environmentUpdatables = [];
 
     function spawnEnvironmentObject(data) {
-        if (data.type === 'Campfire' && window.Campfire) {
-            const campfire = new window.Campfire();
-            if (data.config) {
-                Object.assign(campfire.config, data.config);
+        if (window.ObjectFactory) {
+            const factoryObj = window.ObjectFactory.create(data.type, data.config);
+            if (factoryObj) {
+                // Apply transformations
+                factoryObj.group.position.set(data.position.x, data.position.y, data.position.z);
+                factoryObj.group.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
+                factoryObj.group.scale.set(data.scale.x, data.scale.y, data.scale.z);
+                
+                scene.add(factoryObj.group);
+                environmentObjects.push(factoryObj.group);
+                if (factoryObj.updatable) {
+                    environmentUpdatables.push(factoryObj.updatable);
+                }
             }
-            campfire.group.position.set(data.position.x, data.position.y, data.position.z);
-            campfire.group.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
-            campfire.group.scale.set(data.scale.x, data.scale.y, data.scale.z);
-            
-            // Add hit box for raycasting/physics if needed, but primarily it's visual
-            scene.add(campfire.group);
-            environmentObjects.push(campfire.group);
-            environmentUpdatables.push(campfire);
         }
     }
 

@@ -16,7 +16,7 @@ files_to_upload = [
     'public/editor.js'
 ]
 
-remote_dir = '/home/nolimitnexus/steam_chatroom'
+remote_dir = '/var/services/homes/nolimitnexus/steam_chatroom'
 
 for file in files_to_upload:
     local_path = os.path.join(os.getcwd(), file)
