@@ -23,6 +23,86 @@
     var myCharacter = null;
     var camRig = new THREE.Group();
     var keys = {};
+
+    // --- FISHING & INVENTORY ---
+    var GAME_ITEMS = {
+        raw_shrimp: { id: 'raw_shrimp', name: 'Raw Shrimp', color: 0xffbdde, icon: 'assets/icons/fish/shrimp.png' },
+        raw_trout: { id: 'raw_trout', name: 'Raw Trout', color: 0xa8a8a8, icon: 'assets/icons/fish/trout.png' }
+    };
+    var playerItems = [];
+    var fishingSpots = [];
+    var vfxOrbs = [];
+    var raycaster = new THREE.Raycaster();
+    
+    function updateInventoryUI() {
+        var invContainer = document.getElementById('inventory-ui');
+        var invGrid = document.getElementById('inventory-grid');
+        if (!invContainer || !invGrid) return;
+        
+        if (playerItems.length > 0) invContainer.style.display = 'block';
+        else invContainer.style.display = 'none';
+
+        invGrid.innerHTML = '';
+        playerItems.forEach(item => {
+            var el = document.createElement('div');
+            el.style.cssText = 'background:rgba(255,255,255,0.1); border:1px solid #3b82f6; border-radius:4px; padding:5px; text-align:center;';
+            el.innerHTML = '<img src="' + item.icon + '" style="width:32px; height:32px; object-fit:contain;"><div style="font-size:10px; margin-top:2px;">' + item.name + '</div>';
+            invGrid.appendChild(el);
+        });
+    }
+
+    function createFishingSpot() {
+        const group = new THREE.Group();
+        group.userData.interactable = true;
+        group.userData.action = 'fishing';
+
+        const rockCount = 12;
+        const radius = 1.0;
+        const rockGeo = new THREE.DodecahedronGeometry(0.3, 0);
+        const rockMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, roughness: 0.9, flatShading: true });
+
+        for (let i = 0; i < rockCount; i++) {
+            const rock = new THREE.Mesh(rockGeo, rockMat);
+            const angle = (i / rockCount) * Math.PI * 2;
+            const r = radius + (Math.random() - 0.5) * 0.2;
+            rock.position.set(Math.cos(angle) * r, 0.1, Math.sin(angle) * r);
+            const s = 0.8 + Math.random() * 0.5;
+            rock.scale.set(s, s * 0.6, s);
+            rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            group.add(rock);
+        }
+
+        const light = new THREE.PointLight(0x4fc3f7, 2, 4);
+        light.position.set(0, 1, 0);
+        group.add(light);
+
+        const bubbles = [];
+        const bubbleGeo = new THREE.SphereGeometry(0.04, 8, 8);
+        const bubbleMat = new THREE.MeshStandardMaterial({ color: 0xe0f7fa, transparent: true, opacity: 0.7, roughness: 0.2 });
+
+        for (let i = 0; i < 20; i++) {
+            const bubble = new THREE.Mesh(bubbleGeo, bubbleMat.clone());
+            const r = 0.8 * Math.sqrt(Math.random());
+            const theta = Math.random() * 2 * Math.PI;
+            bubble.position.set(r * Math.cos(theta), 0.2, r * Math.sin(theta));
+            bubble.userData = { speed: 0.3 + Math.random() * 0.4, initialX: bubble.position.x, initialZ: bubble.position.z, offset: Math.random() * Math.PI * 2, amp: 0.05 };
+            group.add(bubble);
+            bubbles.push(bubble);
+        }
+        group.userData.bubbles = bubbles;
+        
+        // Add a large invisible cylinder for easy raycasting
+        const hitGeo = new THREE.CylinderGeometry(1.5, 1.5, 2.0, 8);
+        const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+        hitMesh.position.y = 1.0;
+        hitMesh.userData = group.userData;
+        hitMesh.userData.parentGroup = group;
+        group.add(hitMesh);
+
+        return group;
+    }
+    // ----------------------------
     var state = {
         camPitch: 0,
         camYaw: 0,
@@ -282,6 +362,31 @@
         return 0;
     }
 
+    // Initialize fishing spots around coastal areas
+    setTimeout(() => {
+        let placed = 0;
+        for (let i = 0; i < 2000; i++) {
+            if (placed >= 15) break;
+            const tx = (Math.random() - 0.5) * 200;
+            const tz = (Math.random() - 0.5) * 200;
+            const th = getTerrainHeight(tx, tz);
+            // Coastline is where terrain dips just below water level (-1.2)
+            if (th < -1.1 && th > -1.35) {
+                let overlap = false;
+                for (let s of fishingSpots) {
+                    if (s.position.distanceTo(new THREE.Vector3(tx, -1.2, tz)) < 6.0) overlap = true;
+                }
+                if (!overlap) {
+                    const spot = createFishingSpot();
+                    spot.position.set(tx, -1.2, tz); // Set at water level
+                    scene.add(spot);
+                    fishingSpots.push(spot);
+                    placed++;
+                }
+            }
+        }
+    }, 1000);
+
     // Pointer Lock & Marching Panel
     var PI_2 = Math.PI / 2;
     var mPanel = document.getElementById('marching-panel');
@@ -483,11 +588,48 @@
 
     document.addEventListener('mousedown', function (e) {
         if (!isLocked || !myCharacter) return;
-        if (e.button === 0 && (state.inventory === 1 || state.inventory === 2)) { // Left click
-            if (state.shootTime <= 0) {
-                if (state.inventory === 1) shootGun(myCharacter, true);
-                else state.shootTime = 0.15; // Swing axe
-                socket.emit('playerShoot', { id: myId });
+        if (e.button === 0) { // Left click
+            if (state.inventory === 0) {
+                // HANDS: Raycast for interaction
+                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                // Get all meshes inside fishing spots
+                let interactables = [];
+                fishingSpots.forEach(s => s.children.forEach(c => interactables.push(c)));
+                
+                const intersects = raycaster.intersectObjects(interactables, false);
+                if (intersects.length > 0) {
+                    const hit = intersects[0].object;
+                    const spotGroup = hit.userData.parentGroup || hit.parent;
+                    if (spotGroup && spotGroup.userData.action === 'fishing') {
+                        if (myCharacter.position.distanceTo(spotGroup.position) < 8.0) {
+                            if (state.shootTime <= 0) {
+                                state.shootTime = 1.0; // Fishing cooldown
+                                
+                                // Pick fish
+                                const fishType = Math.random() > 0.4 ? GAME_ITEMS.raw_shrimp : GAME_ITEMS.raw_trout;
+                                playerItems.push(fishType);
+                                updateInventoryUI();
+                                addChatMessage('System', 'You caught a ' + fishType.name + '!', 0x4fc3f7);
+
+                                // VFX Orb
+                                const orbGeo = new THREE.SphereGeometry(0.2, 8, 8);
+                                const orbMat = new THREE.MeshBasicMaterial({ color: fishType.color });
+                                const orb = new THREE.Mesh(orbGeo, orbMat);
+                                orb.position.copy(spotGroup.position).add(new THREE.Vector3(0, 0.5, 0));
+                                scene.add(orb);
+                                vfxOrbs.push({ mesh: orb, target: myCharacter, life: 1.0 });
+                            }
+                        } else {
+                            addChatMessage('System', 'Too far away to fish!', 0xff4444);
+                        }
+                    }
+                }
+            } else if (state.inventory === 1 || state.inventory === 2) {
+                if (state.shootTime <= 0) {
+                    if (state.inventory === 1) shootGun(myCharacter, true);
+                    else state.shootTime = 0.15; // Swing axe
+                    socket.emit('playerShoot', { id: myId });
+                }
             }
         }
     });
@@ -624,6 +766,51 @@
         if (window.sharedClouds) {
             window.sharedClouds.rotation.y += 0.0005;
         }
+
+        // --- FISHING SPOTS BUBBLES ---
+        fishingSpots.forEach(group => {
+            if (group.userData.bubbles && myCharacter && group.position.distanceTo(myCharacter.position) < 50) {
+                group.userData.bubbles.forEach(b => {
+                    if (b.userData.popping) {
+                        b.scale.addScalar(delta * 8.0);
+                        b.material.opacity -= delta * 3.0;
+                        if (b.material.opacity <= 0) {
+                            b.userData.popping = false;
+                            b.position.y = 0.2;
+                            b.scale.setScalar(1.0);
+                            b.material.opacity = 0.7;
+                            const r = 0.8 * Math.sqrt(Math.random());
+                            const theta = Math.random() * 2 * Math.PI;
+                            b.userData.initialX = r * Math.cos(theta);
+                            b.userData.initialZ = r * Math.sin(theta);
+                            b.position.x = b.userData.initialX;
+                            b.position.z = b.userData.initialZ;
+                        }
+                        return;
+                    }
+                    b.position.y += b.userData.speed * delta;
+                    b.position.x = b.userData.initialX + Math.cos(t * 3 + b.userData.offset) * b.userData.amp;
+                    b.position.z = b.userData.initialZ + Math.sin(t * 3 + b.userData.offset) * b.userData.amp;
+                    if (b.position.y > 1.2) b.userData.popping = true;
+                });
+            }
+        });
+
+        // --- VFX ORBS ---
+        for (let i = vfxOrbs.length - 1; i >= 0; i--) {
+            let orbObj = vfxOrbs[i];
+            let targetPos = orbObj.target.position.clone().add(new THREE.Vector3(0, 1.0, 0));
+            orbObj.mesh.position.lerp(targetPos, delta * 5.0);
+            orbObj.life -= delta;
+            
+            if (orbObj.mesh.position.distanceTo(targetPos) < 0.5 || orbObj.life <= 0) {
+                scene.remove(orbObj.mesh);
+                orbObj.mesh.geometry.dispose();
+                orbObj.mesh.material.dispose();
+                vfxOrbs.splice(i, 1);
+            }
+        }
+
         if (isLocked && myCharacter) {
             // --- EXACT input from Unified Workspace (line 2469-2470) ---
             var moveZ = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
