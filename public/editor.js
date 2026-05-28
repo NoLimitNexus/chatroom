@@ -28,35 +28,10 @@ transformControl.addEventListener('dragging-changed', function(event) {
 });
 scene.add(transformControl);
 
-// Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(50, 100, 50);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-dirLight.shadow.camera.near = 0.5;
-dirLight.shadow.camera.far = 500;
-dirLight.shadow.camera.left = -50;
-dirLight.shadow.camera.right = 50;
-dirLight.shadow.camera.top = 50;
-dirLight.shadow.camera.bottom = -50;
-scene.add(dirLight);
-
-// Ground
-const groundGeo = new THREE.PlaneGeometry(200, 200);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x228b22, roughness: 0.8 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// Grid Helper
-const gridHelper = new THREE.GridHelper(200, 100);
-gridHelper.position.y = 0.01;
-scene.add(gridHelper);
+// Setup Shared Environment
+if (window.setupSharedEnvironment) {
+    window.setupSharedEnvironment(scene, renderer, camera);
+}
 
 // State
 let environmentObjects = [];
@@ -254,7 +229,11 @@ document.getElementById('btn-delete').addEventListener('click', () => {
 
 document.getElementById('btn-snap-ground').addEventListener('click', () => {
     if (selectedObject) {
-        selectedObject.position.y = 0;
+        if (window.getSharedTerrainHeight) {
+            selectedObject.position.y = window.getSharedTerrainHeight(selectedObject.position.x, selectedObject.position.z);
+        } else {
+            selectedObject.position.y = 0;
+        }
     }
 });
 
@@ -311,6 +290,13 @@ function animate() {
     const dt = clock.getDelta();
     
     updatables.forEach(u => u.update && u.update(dt));
+    
+    if (window.sharedWater) {
+        window.sharedWater.material.uniforms['time'].value += dt;
+    }
+    if (window.sharedClouds) {
+        window.sharedClouds.rotation.y += 0.0005;
+    }
     
     orbitControls.update();
     renderer.render(scene, camera);

@@ -812,10 +812,6 @@
         if (window.sharedClouds) {
             window.sharedClouds.rotation.y += 0.0005;
         }
-        if (globalCampfire) {
-            globalCampfire.update();
-        }
-
         // --- FISHING SPOTS BUBBLES ---
         fishingSpots.forEach(group => {
             if (group.userData.bubbles && myCharacter && group.position.distanceTo(myCharacter.position) < 50) {
