@@ -52,8 +52,20 @@ app.post('/api/map', (req, res) => {
 const players = {};
 
 // Store global dropped items
-const droppedItemsNetwork = {};
-let itemCounter = 0;
+const ITEMS_FILE = path.join(DATA_DIR, 'droppedItems.json');
+let droppedItemsNetwork = {};
+if (fs.existsSync(ITEMS_FILE)) {
+    try {
+        droppedItemsNetwork = JSON.parse(fs.readFileSync(ITEMS_FILE, 'utf8'));
+    } catch (e) {
+        console.error("Error reading droppedItems.json", e);
+    }
+}
+function saveDroppedItems() {
+    fs.writeFileSync(ITEMS_FILE, JSON.stringify(droppedItemsNetwork, null, 2));
+}
+
+let itemCounter = Date.now();
 
 io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
@@ -97,12 +109,14 @@ io.on('connection', (socket) => {
     socket.on('itemDropped', (data) => {
         const itemId = 'item_' + itemCounter++;
         droppedItemsNetwork[itemId] = { ...data, itemId };
+        saveDroppedItems();
         io.emit('itemDropped', droppedItemsNetwork[itemId]);
     });
 
     socket.on('itemPickedUp', (itemId) => {
         if (droppedItemsNetwork[itemId]) {
             delete droppedItemsNetwork[itemId];
+            saveDroppedItems();
             io.emit('itemPickedUp', itemId);
         }
     });

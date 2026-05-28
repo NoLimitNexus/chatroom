@@ -118,13 +118,21 @@ window.ObjectFactory = {
     detachFishingRodFromPlayer: function(playerMesh, scene) {
         const data = playerMesh.userData.fishingRodData;
         if (!data) return;
-        if (data.rodGroup.parent) data.rodGroup.parent.remove(data.rodGroup);
-        scene.remove(data.line);
-        data.line.geometry.dispose();
-        data.line.material.dispose();
-        scene.remove(data.bob);
-        data.bob.geometry.dispose();
-        data.bob.material.dispose();
+        if (data.rodGroup && data.rodGroup.parent) data.rodGroup.parent.remove(data.rodGroup);
+        if (data.line) {
+            scene.remove(data.line);
+            if (data.line.geometry) data.line.geometry.dispose();
+            if (data.line.material) data.line.material.dispose();
+        }
+        if (data.bob) {
+            scene.remove(data.bob);
+            data.bob.traverse((child) => {
+                if (child.isMesh) {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                }
+            });
+        }
         playerMesh.userData.fishingRodData = null;
     },
 

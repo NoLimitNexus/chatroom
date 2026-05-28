@@ -823,10 +823,14 @@ function animate() {
 
         // Animate character
         if (typeof window.animateCharacter === 'function') {
+            if (p.mesh.userData.useFBX && p.mesh.userData.fbxWeapons) {
+                if (p.mesh.userData.fbxWeapons.gun) p.mesh.userData.fbxWeapons.gun.visible = (p.userData.inventory === 1);
+                if (p.mesh.userData.fbxWeapons.axe) p.mesh.userData.fbxWeapons.axe.visible = (p.userData.inventory === 2);
+            }
             window.animateCharacter(
-                p.mesh, p.charType,
-                p.isMoving, p.isSprinting, p.isCrouching || false,
-                p.jumpTime || -1, t, dt,
+                p.mesh, p.charType || 'modular',
+                p.isMoving, p.isSprinting, p.isCrouching,
+                p.jumpTime, t, dt,
                 Math.hypot(p.localVx || 0, p.localVz || 0),
                 p.userData.inventory || 0,
                 Math.max(0, p.userData.shootTime || 0),
@@ -836,7 +840,7 @@ function animate() {
 
         if (window.ObjectFactory) {
             if (p.userData.isFishing) {
-                window.ObjectFactory.attachFishingRodToPlayer(p.mesh, scene);
+                if (!p.mesh.userData.fishingRodData) window.ObjectFactory.attachFishingRodToPlayer(p.mesh, scene);
                 if (p.mesh.userData.fishingRodData) {
                     p.mesh.userData.fishingRodData.tugPhase += dt;
                     const waterTarget = new THREE.Vector3(

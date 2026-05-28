@@ -79,15 +79,7 @@
                 el.addEventListener('dragend', (e) => {
                     el.style.opacity = '1';
                     if (dragState.ghost) { dragState.ghost.remove(); dragState.ghost = null; }
-                    // Check if dropped outside the inventory panel
-                    const invUI = document.getElementById('inventory-ui');
-                    const rect = invUI.getBoundingClientRect();
-                    const mx = e.clientX, my = e.clientY;
-                    if (mx < rect.left || mx > rect.right || my < rect.top || my > rect.bottom) {
-                        // Drop item on ground!
-                        dropItemOnGround(dragState.fromIdx);
-                    }
-                    dragState.fromIdx = -1;
+                    // Dropping outside is handled by the global drop listener
                 });
             }
             // Drop target (for swapping/moving)
@@ -114,10 +106,26 @@
                     playerItems[fromIdx] = temp;
                     updateInventoryUI();
                 }
+                dragState.fromIdx = -1;
             });
             invGrid.appendChild(el);
         }
     }
+
+    // Prevent browser default drag behavior and handle drops outside inventory
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    });
+    document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const invUI = document.getElementById('inventory-ui');
+        if (invUI && invUI.contains(e.target)) return; // Handled by inventory slots
+        if (dragState.fromIdx >= 0) {
+            dropItemOnGround(dragState.fromIdx);
+            dragState.fromIdx = -1;
+        }
+    });
 
     function spawnDroppedItem(data) {
         const item = data.itemData;
@@ -274,9 +282,6 @@
     
     // Call once to generate the empty grid slots immediately
     document.addEventListener("DOMContentLoaded", () => setTimeout(updateInventoryUI, 500));
-    // Prevent browser default drag behavior so we can detect drops outside inventory
-    document.addEventListener('dragover', (e) => e.preventDefault());
-    document.addEventListener('drop', (e) => e.preventDefault());
 
     function createFishingSpot() {
         const group = new THREE.Group();
@@ -343,8 +348,13 @@
     function closeWeaponWheel() {
         wheelState.open = false;
         document.getElementById('weapon-wheel').classList.remove('active');
+        let oldInv = state.inventory;
         if (wheelState.selection >= 0) state.inventory = wheelState.selection;
         document.querySelectorAll('.wheel-item').forEach(el => el.classList.remove('highlighted'));
+        
+        if (oldInv !== state.inventory && myCharacter) {
+            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: false, isSprinting: false, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: 0, localVz: 0, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
+        }
     }
 
     function updateWheelHighlight() {
@@ -417,6 +427,21 @@
         var clone = THREE.SkeletonUtils.clone(globalFBXModel);
         playerMesh.userData.fbxModel = clone;
         playerMesh.add(clone);
+        
+        playerMesh.userData.fbxWeapons = {};
+        clone.traverse(child => {
+            if (child.isMesh) {
+                const name = child.name.toLowerCase();
+                if (name.includes('gun')) {
+                    playerMesh.userData.fbxWeapons.gun = child;
+                    child.visible = false;
+                }
+                if (name.includes('axe')) {
+                    playerMesh.userData.fbxWeapons.axe = child;
+                    child.visible = false;
+                }
+            }
+        });
         
         var mixer = new THREE.AnimationMixer(clone);
         playerMesh.userData.mixer = mixer;
@@ -912,14 +937,20 @@
 
     // --- Stop any active gathering ---
     function stopGathering() {
+        let changed = false;
         if (autoFishing.active) {
             autoFishing.active = false;
             ObjectFactory.detachFishingRodFromPlayer(myCharacter, scene);
             addChatMessage('System', 'Stopped fishing.', 0x4fc3f7);
+            changed = true;
         }
         if (autoCooking.active) {
             autoCooking.active = false;
             addChatMessage('System', 'Stopped cooking.', 0xff9800);
+            changed = true;
+        }
+        if (changed) {
+            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: false, isSprinting: false, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: 0, localVz: 0, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
         }
     }
 
@@ -1114,6 +1145,7 @@
     // animateCharacter function has been removed.
     // It is now dynamically pulled from shared-characters.js hosted by 3D-Unified-Workspace!
 
+    var lastEmitTime = 0;
     function animate() {
         if (!isPlaying) return;
         requestAnimationFrame(animate);
@@ -1326,6 +1358,10 @@
                 setupPlayerFBX(myCharacter);
             }
 
+            if (myCharacter.userData.useFBX && myCharacter.userData.fbxWeapons) {
+                if (myCharacter.userData.fbxWeapons.gun) myCharacter.userData.fbxWeapons.gun.visible = (state.inventory === 1);
+                if (myCharacter.userData.fbxWeapons.axe) myCharacter.userData.fbxWeapons.axe.visible = (state.inventory === 2);
+            }
             animateCharacter(myCharacter, selectedChar, isMoving, isSprinting, state.isCrouching, state.jumpTime, t, delta, Math.hypot(localVx, localVz), state.inventory, Math.max(0, state.shootTime), state.camPitch);
 
             // --- EXACT upper body aiming from Unified Workspace (line 2729-2750) ---
@@ -1362,7 +1398,10 @@
             var lookTgt = camRig.localToWorld(new THREE.Vector3(0, 0, 100));
             camera.lookAt(lookTgt);
 
-            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
+            if (time - lastEmitTime > 50) {
+                socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
+                lastEmitTime = time;
+            }
         }
 
         for (var i = state.tracers.length - 1; i >= 0; i--) {
@@ -1418,24 +1457,36 @@
             
             // Handle remote fishing
             if (p.userData.isFishing) {
-                ObjectFactory.attachFishingRodToPlayer(p.mesh, scene);
+                if (!p.mesh.userData.fishingRodData) ObjectFactory.attachFishingRodToPlayer(p.mesh, scene);
                 
                 // Generic idle catching animation for remote players
-                if (p.userData.fishingRodData) {
+                if (p.mesh.userData.fishingRodData) {
                     const waterTarget = new THREE.Vector3(
                         p.mesh.position.x + Math.sin(p.mesh.rotation.y) * 4.0,
                         -1.0 + Math.sin(t * 1.5) * 0.05,
                         p.mesh.position.z + Math.cos(p.mesh.rotation.y) * 4.0
                     );
                     const catchProgress = 0.5 + Math.sin(t) * 0.2; // simulate variable tension
-                    ObjectFactory.animateFishingRod(p.userData.fishingRodData, p.mesh, waterTarget, t, catchProgress);
+                    ObjectFactory.animateFishingRod(p.mesh.userData.fishingRodData, p.mesh, waterTarget, t, catchProgress);
                 }
             } else {
                 ObjectFactory.detachFishingRodFromPlayer(p.mesh, scene);
             }
             
-            animateCharacter(p.mesh, p.charType, p.isMoving, p.isSprinting, p.isCrouching || false, p.jumpTime || -1, t, delta, Math.hypot(p.localVx || 0, p.localVz || 0), inv, Math.max(0, p.userData.shootTime || 0), p.userData.camPitch || 0);
-
+            if (typeof window.animateCharacter === 'function') {
+                if (p.mesh.userData.useFBX && p.mesh.userData.fbxWeapons) {
+                    if (p.mesh.userData.fbxWeapons.gun) p.mesh.userData.fbxWeapons.gun.visible = (inv === 1);
+                    if (p.mesh.userData.fbxWeapons.axe) p.mesh.userData.fbxWeapons.axe.visible = (inv === 2);
+                }
+                window.animateCharacter(
+                    p.mesh, p.charType || 'modular',
+                    p.isMoving, p.isSprinting, p.isCrouching,
+                    p.jumpTime, t, delta,
+                    Math.hypot(p.localVx || 0, p.localVz || 0),
+                    inv, Math.max(0, p.userData.shootTime || 0), p.userData.camPitch || 0
+                );
+            }
+            
             var vec = p.mesh.position.clone();
             vec.y += (p.charType === 'goop') ? 1.0 : 1.8;
             vec.project(camera);
