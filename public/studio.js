@@ -105,12 +105,17 @@ function applyConfigToMesh(mesh, type) {
         if (bp) {
             bp.torso.material.color.set(config.colorTorso);
             bp.head.material.color.set(config.colorHead);
-            bp.pelvis.material.color.set(config.colorTorso);
+            if (bp.pelvis.mesh) bp.pelvis.mesh.material.color.set(config.colorTorso);
+            else bp.pelvis.material.color.set(config.colorTorso);
             
-            bp.armL.children[0].material.color.set(config.colorLimbs);
-            bp.armR.children[0].material.color.set(config.colorLimbs);
-            bp.legL.children[0].material.color.set(config.colorLimbs);
-            bp.legR.children[0].material.color.set(config.colorLimbs);
+            if (bp.armL.mesh) bp.armL.mesh.material.color.set(config.colorLimbs);
+            else bp.armL.children[0].material.color.set(config.colorLimbs);
+            if (bp.armR.mesh) bp.armR.mesh.material.color.set(config.colorLimbs);
+            else bp.armR.children[0].material.color.set(config.colorLimbs);
+            if (bp.legL.mesh) bp.legL.mesh.material.color.set(config.colorLimbs);
+            else bp.legL.children[0].material.color.set(config.colorLimbs);
+            if (bp.legR.mesh) bp.legR.mesh.material.color.set(config.colorLimbs);
+            else bp.legR.children[0].material.color.set(config.colorLimbs);
 
             // Shape
             bp.torso.scale.set(config.scaleTorso, config.scaleTorso, config.scaleTorso);
@@ -132,9 +137,9 @@ function applyConfigToMesh(mesh, type) {
     } else if (type === 'goop-man') {
         if (bp) {
             // Apply material changes to the first mesh we find (all use same material ref)
-            bp.torso.children[0].material.color.set(config.colorMain);
-            bp.torso.children[0].material.thickness = config.thickness;
-            bp.torso.children[0].material.roughness = config.roughness;
+            bp.torso.material.color.set(config.colorMain);
+            bp.torso.material.thickness = config.thickness;
+            bp.torso.material.roughness = config.roughness;
 
             bp.torso.scale.set(config.scaleTorso, config.scaleTorso, config.scaleTorso);
             bp.head.scale.set(config.scaleHead, config.scaleHead, config.scaleHead);
@@ -243,14 +248,63 @@ function buildUIControls(type) {
         controlsContainer.appendChild(createControl('Head Size', 'slider', 'scaleHead', 0.5, 2.0, 0.05));
         controlsContainer.appendChild(createControl('Arm Thickness', 'slider', 'scaleArms', 0.5, 2.0, 0.05));
         controlsContainer.appendChild(createControl('Leg Thickness', 'slider', 'scaleLegs', 0.5, 2.0, 0.05));
+    } else if (type === 'campfire') {
+        controlsContainer.appendChild(createEnvControl('Emission Rate', 'slider', 'emissionRate', 100, 2000, 50));
+        controlsContainer.appendChild(createEnvControl('Fire Size', 'slider', 'fireSize', 0.1, 3.0, 0.1));
+        controlsContainer.appendChild(createEnvControl('Speed', 'slider', 'speed', 0.5, 3.0, 0.1));
+        controlsContainer.appendChild(createEnvControl('Spread', 'slider', 'spread', 0.01, 1.0, 0.01));
     }
 }
 
+function createEnvControl(label, type, key, min, max, step) {
+    const group = document.createElement('div');
+    group.className = 'control-group';
+    
+    const header = document.createElement('div');
+    header.className = 'control-header';
+    
+    const title = document.createElement('span');
+    title.innerText = label;
+    
+    const valDisplay = document.createElement('span');
+    valDisplay.className = 'control-val';
+    valDisplay.innerText = envConfigs[currentEnvType][key];
+    
+    header.appendChild(title);
+    header.appendChild(valDisplay);
+    
+    let input = document.createElement('input');
+    if (type === 'slider') {
+        input.type = 'range';
+        input.min = min;
+        input.max = max;
+        input.step = step;
+        input.value = envConfigs[currentEnvType][key];
+        input.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            envConfigs[currentEnvType][key] = v;
+            valDisplay.innerText = v.toFixed(2);
+            applyConfigToEnv();
+        });
+    }
+    
+    group.appendChild(header);
+    group.appendChild(input);
+    return group;
+}
+
 function updateExportOutput() {
-    exportOutput.value = JSON.stringify({
-        type: currentType,
-        config: charConfigs[currentType]
-    }, null, 2);
+    if (currentMode === 'character') {
+        exportOutput.value = JSON.stringify({
+            type: currentType,
+            config: charConfigs[currentType]
+        }, null, 2);
+    } else {
+        exportOutput.value = JSON.stringify({
+            type: currentEnvType,
+            config: envConfigs[currentEnvType]
+        }, null, 2);
+    }
 }
 
 exportBtn.addEventListener('click', () => {
@@ -265,13 +319,112 @@ exportBtn.addEventListener('click', () => {
 });
 
 // Model Selector Links
-document.querySelectorAll('.model-btn').forEach(btn => {
+function renderSelector() {
+    const selector = document.getElementById('model-selector');
+    const title = document.getElementById('selector-title');
+    selector.innerHTML = '';
+    
+    if (currentMode === 'character') {
+        title.innerText = 'SELECT MODEL';
+        const models = [
+            { id: 'modular', name: 'MODULAR MAN' },
+            { id: 'goop', name: 'THE GOOP' },
+            { id: 'goop-man', name: 'GOOP MAN' }
+        ];
+        models.forEach(m => {
+            const btn = document.createElement('button');
+            btn.className = 'model-btn glow-btn' + (currentType === m.id ? ' active' : '');
+            btn.innerText = m.name;
+            btn.onclick = () => {
+                document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadCharacter(m.id);
+            };
+            selector.appendChild(btn);
+        });
+    } else {
+        title.innerText = 'SELECT ENVIRONMENT';
+        const envs = [
+            { id: 'campfire', name: 'CAMPFIRE' }
+        ];
+        envs.forEach(e => {
+            const btn = document.createElement('button');
+            btn.className = 'model-btn glow-btn' + (currentEnvType === e.id ? ' active' : '');
+            btn.innerText = e.name;
+            btn.onclick = () => {
+                document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadEnvironment(e.id);
+            };
+            selector.appendChild(btn);
+        });
+    }
+}
+
+// Mode Switching
+document.querySelectorAll('.mode-tab').forEach(btn => {
     btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
-        loadCharacter(e.target.dataset.model);
+        currentMode = e.target.dataset.mode;
+        
+        if (currentMode === 'character') {
+            if (envCampfire) { scene.remove(envCampfire.group); }
+            if (currentCharacter) { scene.add(currentCharacter); }
+            renderSelector();
+            buildUIControls(currentType);
+            updateExportOutput();
+        } else {
+            if (currentCharacter) { scene.remove(currentCharacter); }
+            loadEnvironment(currentEnvType);
+            renderSelector();
+        }
     });
 });
+
+let currentMode = 'character';
+let currentEnvType = 'campfire';
+let envCampfire = null;
+
+// Environment Configs
+const envConfigs = {
+    'campfire': {
+        emissionRate: 500,
+        fireSize: 0.8,
+        speed: 1.5,
+        spread: 0.15
+    }
+};
+
+function applyConfigToEnv() {
+    if (currentEnvType === 'campfire' && envCampfire) {
+        const conf = envConfigs['campfire'];
+        envCampfire.config.emissionRate = conf.emissionRate;
+        envCampfire.config.size = conf.fireSize * 15; // default size is 12, fireSize scales it.
+        envCampfire.config.speed = conf.speed;
+        envCampfire.config.spread = conf.spread;
+        
+        exportOutput.value = JSON.stringify({
+            type: 'campfire',
+            config: conf
+        }, null, 2);
+    }
+}
+
+function loadEnvironment(type) {
+    currentEnvType = type;
+    if (type === 'campfire') {
+        if (!envCampfire && window.Campfire) {
+            envCampfire = new window.Campfire();
+        }
+        if (envCampfire) {
+            envCampfire.group.position.set(0, 0, 0);
+            scene.add(envCampfire.group);
+            applyConfigToEnv();
+        }
+    }
+    buildUIControls(type);
+}
 
 // --- RENDER LOOP ---
 const clock = new THREE.Clock();
@@ -283,18 +436,14 @@ function animate() {
     
     controls.update();
 
-    if (currentCharacter) {
+    if (currentMode === 'character' && currentCharacter) {
         // We use the shared animateCharacter function to keep the idle animation alive
         if (window.animateCharacter) {
             // function signature: mesh, charType, isMoving, isSprinting, isCrouching, jumpTime, t, delta, speedStr, inventory, shootTime, camPitch
             window.animateCharacter(currentCharacter, currentType, false, false, false, -1, animTime, delta, 0, 0, 0, 0);
         }
-        
-        // Goop Man marching cubes manual update because we override scale directly
-        if (currentType === 'goop-man' && currentCharacter.userData.marchingCubes) {
-            // animateCharacter already calls update() on it, but we scaled the bones dynamically
-            // so bounding boxes changed. The loop inside animateCharacter handles boundingBox reading dynamically, so it should auto-adjust!
-        }
+    } else if (currentMode === 'environment' && envCampfire) {
+        envCampfire.update(delta);
     }
 
     renderer.render(scene, camera);
@@ -308,7 +457,12 @@ window.addEventListener('resize', () => {
 });
 
 // Wait for shared-characters to load
-setTimeout(() => {
-    loadCharacter('modular');
-    animate();
-}, 200);
+function initStudio() {
+    if (window.buildModularMan) {
+        loadCharacter('modular');
+        animate();
+    } else {
+        setTimeout(initStudio, 100);
+    }
+}
+initStudio();

@@ -13,16 +13,18 @@
     <div id="ui-layer">
         <div class="sidebar glass-panel">
             <div class="header">
-                <h1>CHARACTER STUDIO</h1>
-                <p>Customize and export character aesthetics.</p>
+                <h1>STUDIO</h1>
+                <p>Customize and export aesthetics.</p>
+                <div class="mode-tabs" style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="mode-tab glow-btn active" data-mode="character" style="flex:1; padding: 8px; font-size: 0.8rem;">CHARACTER</button>
+                    <button class="mode-tab glow-btn" data-mode="environment" style="flex:1; padding: 8px; font-size: 0.8rem;">ENVIRONMENT</button>
+                </div>
             </div>
             
             <div class="section">
-                <h3>SELECT MODEL</h3>
-                <div class="model-selector">
-                    <button class="model-btn active" data-model="modular">MODULAR MAN</button>
-                    <button class="model-btn" data-model="goop">THE GOOP</button>
-                    <button class="model-btn" data-model="goop-man">GOOP MAN</button>
+                <h3 id="selector-title">SELECT MODEL</h3>
+                <div class="model-selector" id="model-selector">
+                    <!-- Injected by JS -->
                 </div>
             </div>
 
@@ -47,6 +49,7 @@
     
     <!-- Original Shared Characters (for base logic) -->
     <script src="https://nolimitnexus.github.io/3D-Unified-Workspace/shared-characters.js"></script>
+    <script src="campfire.js"></script>
     
     <!-- Studio Logic -->
     <script src="studio.js"></script>

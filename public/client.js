@@ -348,6 +348,31 @@
         return 0;
     }
 
+    var globalCampfire = null;
+    if (window.Campfire) {
+        console.log("Campfire class found, initializing...");
+        globalCampfire = new window.Campfire();
+        
+        // Add a debug glowing box to make it SUPER visible in case of shader issues
+        const dbgGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const dbgMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true });
+        const dbgMesh = new THREE.Mesh(dbgGeo, dbgMat);
+        dbgMesh.position.y = 1.0;
+        globalCampfire.group.add(dbgMesh);
+        
+        setTimeout(() => {
+            const h = getTerrainHeight(0, 0);
+            globalCampfire.group.position.set(0, h + 0.1, 0);
+            scene.add(globalCampfire.group);
+            console.log("Campfire added to scene at", 0, h + 0.1, 0);
+            if (typeof addChatMessage === 'function') {
+                addChatMessage('System', 'Campfire has spawned at 0,0.', 0xffaa00);
+            }
+        }, 500);
+    } else {
+        console.warn("window.Campfire is NOT defined!");
+    }
+
     // Initialize fishing spots around coastal areas
     setTimeout(() => {
         let placed = 0;
@@ -757,6 +782,9 @@
         }
         if (window.sharedClouds) {
             window.sharedClouds.rotation.y += 0.0005;
+        }
+        if (globalCampfire) {
+            globalCampfire.update();
         }
 
         // --- FISHING SPOTS BUBBLES ---
