@@ -20,6 +20,152 @@ window.ObjectFactory = {
         'Fence':       { icon: '🏗️', category: 'Structures' }
     },
 
+    buildFishingRod: function() {
+        const rod = new THREE.Group();
+
+        // Handle / grip (cork-colored)
+        const gripGeo = new THREE.CylinderGeometry(0.022, 0.03, 0.35, 8);
+        const gripMat = new THREE.MeshStandardMaterial({ color: 0xc4a265, roughness: 0.9 });
+        const grip = new THREE.Mesh(gripGeo, gripMat);
+        grip.position.y = 0.175;
+        rod.add(grip);
+
+        // Reel (metallic)
+        const reelGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.05, 10);
+        const reelMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.7, roughness: 0.3 });
+        const reel = new THREE.Mesh(reelGeo, reelMat);
+        reel.rotation.x = Math.PI / 2;
+        reel.position.set(0.035, 0.22, 0);
+        rod.add(reel);
+
+        // Shaft — 6 segments for realistic bending
+        const segments = [];
+        const segCount = 6;
+        const totalLen = 1.8;
+        const segLen = totalLen / segCount;
+        let parent = rod;
+        let baseY = 0.35;
+        for (let i = 0; i < segCount; i++) {
+            const pivot = new THREE.Group();
+            pivot.position.y = (i === 0) ? baseY : segLen;
+            parent.add(pivot);
+
+            const thick = 0.018 - (i * 0.0022); // taper
+            const segGeo = new THREE.CylinderGeometry(Math.max(thick - 0.002, 0.003), thick, segLen, 6);
+            const segMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(0.07, 0.35, 0.32 + i * 0.04),
+                roughness: 0.5
+            });
+            const seg = new THREE.Mesh(segGeo, segMat);
+            seg.position.y = segLen / 2;
+            pivot.add(seg);
+
+            // Line guides (small rings)
+            if (i > 0 && i < segCount - 1) {
+                const guideGeo = new THREE.TorusGeometry(0.012, 0.003, 4, 8);
+                const guideMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.5 });
+                const guide = new THREE.Mesh(guideGeo, guideMat);
+                guide.position.y = segLen;
+                guide.rotation.x = Math.PI / 2;
+                pivot.add(guide);
+            }
+
+            segments.push(pivot);
+            parent = pivot;
+        }
+
+        // Tip-top guide
+        const tipGeo = new THREE.SphereGeometry(0.008, 6, 6);
+        const tipMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6 });
+        const tip = new THREE.Mesh(tipGeo, tipMat);
+        tip.position.y = segLen;
+        parent.add(tip);
+
+        // Position rod in right hand area, angled out over water
+        rod.position.set(0.35, 0.75, 0.15);
+        rod.rotation.set(Math.PI * 0.25, 0, -Math.PI * 0.15);
+
+        return { rodGroup: rod, segments };
+    },
+
+    attachFishingRodToPlayer: function(playerMesh, scene) {
+        if (playerMesh.userData.fishingRodData) return;
+        const { rodGroup, segments } = this.buildFishingRod();
+        playerMesh.add(rodGroup);
+
+        // Fishing line (world space) — bezier curve from tip to water
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.6 });
+        const lineGeo = new THREE.BufferGeometry();
+        const fishLine = new THREE.Line(lineGeo, lineMat);
+        scene.add(fishLine);
+
+        // Bobber / float
+        const bobGeo = new THREE.SphereGeometry(0.05, 8, 8);
+        const bobMat = new THREE.MeshStandardMaterial({
+            color: 0xff2222, emissive: 0xff4444, emissiveIntensity: 0.4, roughness: 0.3
+        });
+        const bob = new THREE.Mesh(bobGeo, bobMat);
+        // White bottom half
+        const bob2Geo = new THREE.SphereGeometry(0.048, 8, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+        const bob2Mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+        const bob2 = new THREE.Mesh(bob2Geo, bob2Mat);
+        bob.add(bob2);
+        scene.add(bob);
+
+        playerMesh.userData.fishingRodData = { rodGroup, segments, line: fishLine, bob, tugPhase: 0 };
+    },
+
+    detachFishingRodFromPlayer: function(playerMesh, scene) {
+        const data = playerMesh.userData.fishingRodData;
+        if (!data) return;
+        if (data.rodGroup.parent) data.rodGroup.parent.remove(data.rodGroup);
+        scene.remove(data.line);
+        data.line.geometry.dispose();
+        data.line.material.dispose();
+        scene.remove(data.bob);
+        data.bob.geometry.dispose();
+        data.bob.material.dispose();
+        playerMesh.userData.fishingRodData = null;
+    },
+
+    animateFishingRod: function(rodData, playerMesh, waterTarget, t, catchProgress) {
+        // catchProgress 0->1 as catch approaches
+        const tugBase = 0.02 + catchProgress * 0.06;
+        const tugWave = Math.sin(t * 4.0) * tugBase;
+        const jerk = (catchProgress > 0.7) ? Math.sin(t * 12.0) * 0.04 : 0;
+
+        // Bend each rod segment progressively
+        rodData.segments.forEach((seg, i) => {
+            const factor = (i / rodData.segments.length);
+            seg.rotation.x = factor * (tugWave + jerk) * 2.5;
+            seg.rotation.z = Math.sin(t * 2.5 + i) * factor * 0.015;
+        });
+
+        // Update fishing line — bezier from rod tip to water
+        const tipWorld = new THREE.Vector3();
+        const lastSeg = rodData.segments[rodData.segments.length - 1];
+        const tipLocal = new THREE.Vector3(0, 1.8 / rodData.segments.length, 0);
+        lastSeg.localToWorld(tipWorld.copy(tipLocal));
+
+        // Bezier mid-point (line sag)
+        const mid = tipWorld.clone().lerp(waterTarget, 0.5);
+        mid.y -= 0.4 + Math.sin(t * 2) * 0.1; // sag
+
+        // Build curved line from bezier
+        const curve = new THREE.QuadraticBezierCurve3(tipWorld, mid, waterTarget);
+        const pts = curve.getPoints(16);
+        rodData.line.geometry.dispose();
+        rodData.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+
+        // Bobber position at water target with bobbing
+        rodData.bob.position.copy(waterTarget);
+        rodData.bob.position.y += 0.03 + Math.sin(t * 3) * 0.02;
+        // Bob dips when catch is close
+        if (catchProgress > 0.8) {
+            rodData.bob.position.y -= 0.06 * Math.sin(t * 10);
+        }
+    },
+
     create: function(type, config = {}) {
         let group = null;
         let updatable = null;

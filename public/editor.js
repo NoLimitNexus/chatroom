@@ -620,6 +620,14 @@ socket.on('playerJoined', function(data) {
     }
 });
 
+socket.on('disconnect', function() {
+    console.log('Disconnected from server. Waiting for reconnect...');
+    socket.once('connect', function() {
+        console.log('Reconnected! Reloading page to fetch latest updates...');
+        window.location.reload(true);
+    });
+});
+
 function spawnDroppedItem(data) {
     const item = data.itemData;
     const pickupGroup = new THREE.Group();
@@ -678,6 +686,8 @@ socket.on('playerMoved', function(d) {
     p.localVz = d.localVz;
     p.userData.inventory = d.inventory;
     p.userData.camPitch = d.camPitch;
+    p.userData.isFishing = d.isFishing;
+    p.userData.isCooking = d.isCooking;
 });
 
 socket.on('playerLeft', function(id) {
@@ -822,6 +832,26 @@ function animate() {
                 Math.max(0, p.userData.shootTime || 0),
                 p.userData.camPitch || 0
             );
+        }
+
+        // Handle remote fishing
+        if (p.userData.isFishing) {
+            if (window.ObjectFactory) {
+                window.ObjectFactory.attachFishingRodToPlayer(p.mesh, scene);
+                if (p.userData.fishingRodData) {
+                    const waterTarget = new THREE.Vector3(
+                        p.mesh.position.x + Math.sin(p.mesh.rotation.y) * 4.0,
+                        -1.0 + Math.sin(t * 1.5) * 0.05,
+                        p.mesh.position.z + Math.cos(p.mesh.rotation.y) * 4.0
+                    );
+                    const catchProgress = 0.5 + Math.sin(t) * 0.2; // simulate variable tension
+                    window.ObjectFactory.animateFishingRod(p.userData.fishingRodData, p.mesh, waterTarget, t, catchProgress);
+                }
+            }
+        } else {
+            if (window.ObjectFactory) {
+                window.ObjectFactory.detachFishingRodFromPlayer(p.mesh, scene);
+            }
         }
 
         // Nametag projection
