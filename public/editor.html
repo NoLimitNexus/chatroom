@@ -4,123 +4,179 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Steam Chatroom - World Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Inter', sans-serif; }
+        * { box-sizing: border-box; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Inter', sans-serif; }
         canvas { display: block; }
-        
+
+        /* ---- Right Panel ---- */
         #ui-layer {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 300px;
-            background: rgba(10, 10, 15, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
+            position: absolute; top: 0; right: 0;
+            width: 310px; height: 100vh;
+            background: rgba(8, 10, 18, 0.92);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255,255,255,0.08);
             color: #fff;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            pointer-events: auto;
-            max-height: calc(100vh - 40px);
             overflow-y: auto;
+            pointer-events: auto;
+            padding: 16px;
         }
 
-        h1 {
-            margin: 0 0 10px 0;
-            font-size: 1.2rem;
+        #ui-layer::-webkit-scrollbar { width: 4px; }
+        #ui-layer::-webkit-scrollbar-thumb { background: rgba(59,130,246,0.4); border-radius: 2px; }
+
+        .panel-header {
+            font-size: 1rem;
             color: #3b82f6;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 3px;
+            font-weight: 800;
+            margin-bottom: 4px;
         }
 
-        p {
-            font-size: 0.85rem;
-            color: #a0aec0;
-            margin-bottom: 20px;
+        .panel-sub { font-size: 0.75rem; color: #64748b; margin-bottom: 16px; }
+
+        .section-title {
+            font-size: 0.75rem;
+            margin: 14px 0 8px 0;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding-bottom: 4px;
         }
 
         .btn {
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.5);
-            color: #fff;
-            padding: 10px 15px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            color: #e2e8f0;
+            padding: 8px 12px;
             border-radius: 6px;
             cursor: pointer;
-            width: 100%;
-            margin-bottom: 10px;
-            transition: all 0.2s;
-            font-weight: bold;
-        }
-
-        .btn:hover {
-            background: rgba(59, 130, 246, 0.4);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-        }
-
-        .transform-modes {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .transform-modes .btn {
-            flex: 1;
-            margin-bottom: 0;
+            transition: all 0.15s;
+            font-weight: 600;
             font-size: 0.8rem;
-            padding: 8px 5px;
         }
+        .btn:hover { background: rgba(59, 130, 246, 0.3); box-shadow: 0 0 10px rgba(59,130,246,0.3); }
+        .btn.active { background: rgba(59, 130, 246, 0.5); box-shadow: 0 0 8px rgba(59,130,246,0.5); }
 
-        .transform-modes .btn.active {
-            background: rgba(59, 130, 246, 0.6);
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+        /* Camera mode buttons */
+        .cam-row { display: flex; gap: 6px; margin-bottom: 12px; }
+        .cam-row .btn { flex: 1; text-align: center; font-size: 0.72rem; padding: 7px 4px; }
+
+        /* Transform mode buttons */
+        .transform-modes { display: flex; gap: 6px; margin-bottom: 12px; }
+        .transform-modes .btn { flex: 1; text-align: center; font-size: 0.75rem; padding: 7px 4px; }
+
+        /* Object palette grid */
+        .obj-palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+        .obj-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 8px 4px; cursor: pointer;
+            transition: all 0.15s; color: #cbd5e1;
         }
+        .obj-btn:hover { background: rgba(59, 130, 246, 0.25); border-color: rgba(59,130,246,0.5); }
+        .obj-btn .obj-icon { font-size: 1.4rem; margin-bottom: 2px; }
+        .obj-btn .obj-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .section-title {
-            font-size: 0.9rem;
-            margin: 15px 0 10px 0;
-            color: #e2e8f0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 5px;
-        }
-
-        .object-list {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 6px;
-            padding: 10px;
-            min-height: 100px;
-            max-height: 200px;
-            overflow-y: auto;
-            font-size: 0.85rem;
+        /* Lists */
+        .list-box {
+            background: rgba(0, 0, 0, 0.3); border-radius: 6px;
+            padding: 6px; min-height: 30px; max-height: 140px; overflow-y: auto;
+            font-size: 0.8rem;
         }
 
         .object-item {
-            padding: 5px 8px;
-            cursor: pointer;
-            border-radius: 4px;
-            margin-bottom: 2px;
+            padding: 4px 8px; cursor: pointer; border-radius: 4px; margin-bottom: 1px;
+        }
+        .object-item:hover { background: rgba(255,255,255,0.08); }
+        .object-item.selected { background: rgba(59,130,246,0.35); }
+
+        .player-entry {
+            padding: 4px 8px; border-radius: 4px; margin-bottom: 1px;
+            display: flex; align-items: center; gap: 6px; cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .player-entry:hover { background: rgba(255,255,255,0.08); }
+        .player-entry.tracking { background: rgba(16,185,129,0.25); border: 1px solid rgba(16,185,129,0.5); }
+        .player-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+
+        .badge {
+            display: inline-block; font-size: 0.65rem; padding: 1px 7px;
+            border-radius: 10px; margin-left: 6px; font-weight: 700;
+        }
+        .badge-green { background: rgba(16,185,129,0.25); color: #10b981; }
+        .badge-blue { background: rgba(59,130,246,0.25); color: #60a5fa; }
+
+        /* Action buttons */
+        .action-row { display: flex; gap: 6px; margin-bottom: 8px; }
+        .action-row .btn { flex: 1; }
+        .btn-danger { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); }
+        .btn-danger:hover { background: rgba(239,68,68,0.3); }
+        .btn-success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); }
+        .btn-success:hover { background: rgba(16,185,129,0.3); }
+
+        /* Follow banner */
+        #follow-banner {
+            display: none; background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.5);
+            border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;
+            font-size: 0.78rem; color: #10b981; text-align: center;
+        }
+        #follow-banner span { font-weight: 700; }
+        #follow-banner .stop-btn {
+            display: inline-block; margin-left: 8px; cursor: pointer;
+            background: rgba(239,68,68,0.3); padding: 2px 10px; border-radius: 4px;
+            color: #fff; font-weight: 600; font-size: 0.7rem;
         }
 
-        .object-item:hover {
-            background: rgba(255, 255, 255, 0.1);
+        /* ---- Chat Panel ---- */
+        #editor-chat {
+            position: absolute; bottom: 16px; left: 16px;
+            width: 380px;
+            background: rgba(8, 10, 18, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 12px;
+            color: #fff;
+            pointer-events: auto;
         }
 
-        .object-item.selected {
-            background: rgba(59, 130, 246, 0.4);
+        #editor-chat-title {
+            font-size: 0.7rem; color: #3b82f6; text-transform: uppercase;
+            letter-spacing: 2px; margin-bottom: 8px; font-weight: 700;
+        }
+
+        #editor-chat-messages {
+            max-height: 160px; overflow-y: auto; font-size: 0.78rem;
+            line-height: 1.5; color: #cbd5e1; margin-bottom: 8px;
+        }
+        .chat-msg { margin-bottom: 3px; }
+        .chat-username { font-weight: 700; }
+
+        #editor-chat-input {
+            width: 100%; background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.12); color: #fff;
+            padding: 7px 10px; border-radius: 6px; font-size: 0.8rem; outline: none;
+        }
+        #editor-chat-input:focus { border-color: #3b82f6; }
+
+        /* ---- HUD ---- */
+        #hud-info {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            font-size: 0.7rem; color: #64748b; pointer-events: none;
+            text-align: center; letter-spacing: 0.5px;
         }
 
         #notification {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(59, 130, 246, 0.9);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
+            position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(59,130,246,0.9); color: #fff;
+            padding: 8px 20px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
     </style>
@@ -128,34 +184,67 @@
 <body>
 
     <div id="ui-layer">
-        <h1>World Editor</h1>
-        <p>Click objects to select. Drag gizmo to move. Press Shift to snap to grid.</p>
+        <div class="panel-header">World Editor</div>
+        <div class="panel-sub">WASD to fly • Shift = fast • Scroll = zoom</div>
 
+        <!-- Camera Mode -->
+        <div class="section-title">Camera</div>
+        <div class="cam-row">
+            <button class="btn active" id="cam-free">🎥 FREE</button>
+            <button class="btn" id="cam-follow">👁️ FOLLOW</button>
+        </div>
+        <div id="follow-banner">
+            Tracking: <span id="follow-name">—</span>
+            <span class="stop-btn" id="follow-stop">✕ STOP</span>
+        </div>
+
+        <!-- Transform Controls -->
+        <div class="section-title">Transform</div>
         <div class="transform-modes">
             <button class="btn active" id="btn-translate">MOVE</button>
             <button class="btn" id="btn-rotate">ROTATE</button>
             <button class="btn" id="btn-scale">SCALE</button>
         </div>
 
-        <div class="section-title">ADD OBJECTS</div>
-        <button class="btn" id="btn-add-campfire">+ Add Campfire</button>
-        <!-- In the future, add + Tree, + Cloud, etc. -->
-
-        <div class="section-title">ACTIONS</div>
-        <button class="btn" id="btn-delete" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5);">Delete Selected</button>
-        <button class="btn" id="btn-snap-ground">Snap to Ground</button>
-        
-        <div class="section-title">OBJECT LIST</div>
-        <div class="object-list" id="object-list">
-            <!-- Populated by JS -->
+        <!-- Object Palette -->
+        <div class="section-title">Place Objects</div>
+        <div class="obj-palette" id="obj-palette">
+            <!-- Populated by JS from ObjectFactory.types -->
         </div>
 
-        <div style="margin-top: 20px;">
-            <button class="btn" id="btn-save" style="background: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5);">SAVE TO SERVER</button>
+        <!-- Actions -->
+        <div class="section-title">Actions</div>
+        <div class="action-row">
+            <button class="btn btn-danger" id="btn-delete">🗑 Delete</button>
+            <button class="btn" id="btn-snap-ground">⬇ Snap Ground</button>
+        </div>
+        <div class="action-row">
+            <button class="btn" id="btn-duplicate">📋 Duplicate</button>
+            <button class="btn btn-success" id="btn-save">💾 Save</button>
+        </div>
+
+        <!-- Object List -->
+        <div class="section-title">Scene Objects <span class="badge badge-blue" id="obj-count">0</span></div>
+        <div class="list-box" id="object-list"></div>
+
+        <!-- Online Players -->
+        <div class="section-title">Online Players <span class="badge badge-green" id="player-count">0</span></div>
+        <div class="list-box" id="player-list">
+            <div style="color:#475569; font-style:italic; font-size:0.75rem;">No players online</div>
         </div>
     </div>
 
-    <div id="notification">Map Saved!</div>
+    <!-- Chat Panel -->
+    <div id="editor-chat">
+        <div id="editor-chat-title">💬 Live Chat</div>
+        <div id="editor-chat-messages"></div>
+        <input type="text" id="editor-chat-input" placeholder="Chat as ⚡ Editor..." autocomplete="off">
+    </div>
+
+    <!-- HUD -->
+    <div id="hud-info">WASD = Move • Shift = Sprint • Click = Select • Del = Delete • Scroll = Zoom</div>
+
+    <div id="notification"></div>
 
     <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
@@ -164,9 +253,10 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/objects/MarchingCubes.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Sky.js"></script>
     <script src="https://nolimitnexus.github.io/3D-Unified-Workspace/shared-environment.js"></script>
+    <script src="https://nolimitnexus.github.io/3D-Unified-Workspace/shared-characters.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
-    
+
     <script src="campfire.js"></script>
     <script src="ObjectFactory.js"></script>
     <script src="editor.js"></script>

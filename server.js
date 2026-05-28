@@ -9,13 +9,23 @@ const io = new Server(server, {
     transports: ['websocket', 'polling']
 });
 
+// CORS: allow cross-origin requests (editor on dev can push to prod)
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
 app.use(express.static('public'));
-app.use(express.json()); // Support JSON body for POST
+app.use(express.json({ limit: '5mb' })); // Support JSON body for POST
 
 const fs = require('fs');
 const path = require('path');
 
-const MAP_FILE = path.join(__dirname, 'map.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const MAP_FILE = path.join(DATA_DIR, 'map.json');
 
 // Load map data or create default
 let mapData = { objects: [] };
@@ -43,28 +53,32 @@ const players = {};
 
 io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
-    
-    // Create player with default state
-    players[socket.id] = {
-        x: Math.random() * 20 - 10,
-        y: 0,
-        z: Math.random() * 20 - 10,
-        color: Math.floor(Math.random() * 0xffffff),
-        username: 'Guest_' + Math.floor(Math.random() * 1000),
-        charType: 'modular' // default character type
-    };
+
+    // Editor can request current player snapshot without joining as a player
+    socket.on('editorRequestPlayers', () => {
+        socket.emit('editorPlayerSnapshot', players);
+    });
 
     // Handle join (client sends username + character type)
     socket.on('join', (data) => {
-        if (players[socket.id]) {
-            // Support both old string format and new object format
-            if (typeof data === 'string') {
-                players[socket.id].username = data;
-            } else {
-                players[socket.id].username = data.username;
-                players[socket.id].charType = data.charType || 'modular';
-            }
+        // Create player state only when they explicitly join
+        players[socket.id] = {
+            x: Math.random() * 20 - 10,
+            y: 0,
+            z: Math.random() * 20 - 10,
+            color: Math.floor(Math.random() * 0xffffff),
+            username: 'Guest_' + Math.floor(Math.random() * 1000),
+            charType: 'modular' // default character type
+        };
+
+        // Support both old string format and new object format
+        if (typeof data === 'string') {
+            players[socket.id].username = data;
+        } else if (data) {
+            players[socket.id].username = data.username || players[socket.id].username;
+            players[socket.id].charType = data.charType || 'modular';
         }
+        
         // Send back all current players + this player's id
         socket.emit('init', { id: socket.id, players: players });
         // Tell everyone else about the new player
@@ -119,6 +133,13 @@ io.on('connection', (socket) => {
                 username: players[socket.id].username, 
                 message: message,
                 color: players[socket.id].color
+            });
+        } else {
+            // Editor or non-player observer
+            io.emit('chatMessage', {
+                username: '⚡ Editor',
+                message: message,
+                color: 0xfbbf24
             });
         }
     });

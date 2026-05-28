@@ -11,10 +11,10 @@ window.Campfire = class Campfire {
         this.presets = {
             campfire: {
                 name: 'Campfire',
-                emissionRate: 4,
+                emissionRate: 3,
                 speed: 1.5,
-                spread: 1.5,
-                size: 12,
+                spread: 0.8,
+                size: 3,
                 colorStart: '#ffaa00',
                 colorEnd: '#ff0000',
                 lifeSpan: 45,
