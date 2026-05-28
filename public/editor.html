@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Chatroom - World Editor</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Inter', sans-serif; }
+        canvas { display: block; }
+        
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            color: #fff;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: #3b82f6;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        p {
+            font-size: 0.85rem;
+            color: #a0aec0;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            background: rgba(59, 130, 246, 0.4);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+
+        .transform-modes {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .transform-modes .btn {
+            flex: 1;
+            margin-bottom: 0;
+            font-size: 0.8rem;
+            padding: 8px 5px;
+        }
+
+        .transform-modes .btn.active {
+            background: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            margin: 15px 0 10px 0;
+            color: #e2e8f0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+        }
+
+        .object-list {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            padding: 10px;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .object-item {
+            padding: 5px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 2px;
+        }
+
+        .object-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .object-item.selected {
+            background: rgba(59, 130, 246, 0.4);
+        }
+
+        #notification {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(59, 130, 246, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>World Editor</h1>
+        <p>Click objects to select. Drag gizmo to move. Press Shift to snap to grid.</p>
+
+        <div class="transform-modes">
+            <button class="btn active" id="btn-translate">MOVE</button>
+            <button class="btn" id="btn-rotate">ROTATE</button>
+            <button class="btn" id="btn-scale">SCALE</button>
+        </div>
+
+        <div class="section-title">ADD OBJECTS</div>
+        <button class="btn" id="btn-add-campfire">+ Add Campfire</button>
+        <!-- In the future, add + Tree, + Cloud, etc. -->
+
+        <div class="section-title">ACTIONS</div>
+        <button class="btn" id="btn-delete" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5);">Delete Selected</button>
+        <button class="btn" id="btn-snap-ground">Snap to Ground</button>
+        
+        <div class="section-title">OBJECT LIST</div>
+        <div class="object-list" id="object-list">
+            <!-- Populated by JS -->
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button class="btn" id="btn-save" style="background: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5);">SAVE TO SERVER</button>
+        </div>
+    </div>
+
+    <div id="notification">Map Saved!</div>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    
+    <script src="campfire.js"></script>
+    <script src="editor.js"></script>
+</body>
+</html>

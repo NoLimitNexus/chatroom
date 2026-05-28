@@ -10,6 +10,33 @@ const io = new Server(server, {
 });
 
 app.use(express.static('public'));
+app.use(express.json()); // Support JSON body for POST
+
+const fs = require('fs');
+const path = require('path');
+
+const MAP_FILE = path.join(__dirname, 'map.json');
+
+// Load map data or create default
+let mapData = { objects: [] };
+if (fs.existsSync(MAP_FILE)) {
+    try {
+        mapData = JSON.parse(fs.readFileSync(MAP_FILE, 'utf8'));
+    } catch (e) {
+        console.error("Error reading map.json", e);
+    }
+}
+
+app.get('/api/map', (req, res) => {
+    res.json(mapData);
+});
+
+app.post('/api/map', (req, res) => {
+    mapData = req.body;
+    fs.writeFileSync(MAP_FILE, JSON.stringify(mapData, null, 2));
+    io.emit('mapUpdate', mapData); // Broadcast to all connected clients
+    res.json({ success: true });
+});
 
 // Store player state
 const players = {};

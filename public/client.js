@@ -348,45 +348,56 @@
         return 0;
     }
 
-    var globalCampfire = null;
-    if (window.Campfire) {
-        console.log("Campfire class found, initializing...");
-        globalCampfire = new window.Campfire();
-        
-        // Apply user requested settings
-        globalCampfire.config.emissionRate = 100;
-        globalCampfire.config.size = 3;       // 0.20 * 15
-        globalCampfire.config.speed = 0.80;
-        globalCampfire.config.spread = 0.56;
-        
-        // Add a debug glowing box to make it SUPER visible in case of shader issues
-        const dbgGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-        const dbgMat = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true });
-        const dbgMesh = new THREE.Mesh(dbgGeo, dbgMat);
-        dbgMesh.position.y = 1.0;
-        globalCampfire.group.add(dbgMesh);
-        
-        setTimeout(() => {
-            let cx = 0, cz = 0;
-            if (myCharacter) {
-                // Place it 3 units in front of the player's spawn
-                const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(myCharacter.quaternion);
-                cx = myCharacter.position.x + dir.x * 3;
-                cz = myCharacter.position.z + dir.z * 3;
+    // Store loaded environment objects
+    var environmentObjects = [];
+    var environmentUpdatables = [];
+
+    function spawnEnvironmentObject(data) {
+        if (data.type === 'Campfire' && window.Campfire) {
+            const campfire = new window.Campfire();
+            if (data.config) {
+                Object.assign(campfire.config, data.config);
             }
-            const h = getTerrainHeight(cx, cz);
-            // Ensure it's not sunken under water (water is at -1.5)
-            const finalY = Math.max(h, -1.0) + 0.1;
-            globalCampfire.group.position.set(cx, finalY, cz);
-            scene.add(globalCampfire.group);
-            console.log("Campfire added to scene at", cx, finalY, cz);
-            if (typeof addChatMessage === 'function') {
-                addChatMessage('System', `Campfire has spawned at ${Math.round(cx)}, ${Math.round(cz)}.`, 0xffaa00);
-            }
-        }, 500);
-    } else {
-        console.warn("window.Campfire is NOT defined!");
+            campfire.group.position.set(data.position.x, data.position.y, data.position.z);
+            campfire.group.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
+            campfire.group.scale.set(data.scale.x, data.scale.y, data.scale.z);
+            
+            // Add hit box for raycasting/physics if needed, but primarily it's visual
+            scene.add(campfire.group);
+            environmentObjects.push(campfire.group);
+            environmentUpdatables.push(campfire);
+        }
     }
+
+    function clearEnvironmentObjects() {
+        environmentObjects.forEach(obj => scene.remove(obj));
+        environmentObjects = [];
+        environmentUpdatables = [];
+    }
+
+    function loadMapData() {
+        fetch('/api/map')
+            .then(res => res.json())
+            .then(data => {
+                clearEnvironmentObjects();
+                if (data && data.objects) {
+                    data.objects.forEach(objData => spawnEnvironmentObject(objData));
+                }
+            })
+            .catch(err => console.error('Error loading map:', err));
+    }
+
+    // Load initial map
+    loadMapData();
+
+    // Listen for live map updates from the editor
+    socket.on('mapUpdate', function(data) {
+        console.log('Map updated from server!');
+        clearEnvironmentObjects();
+        if (data && data.objects) {
+            data.objects.forEach(objData => spawnEnvironmentObject(objData));
+        }
+    });
 
     // Initialize fishing spots around coastal areas
     setTimeout(() => {
@@ -780,7 +791,6 @@
         data.inventory = 0;
         players[id] = { mesh: mesh, nametag: tag, targetPos: new THREE.Vector3(data.x, data.y, data.z), targetRy: data.ry || 0, userData: data, charType: charType };
     }
-
     // animateCharacter function has been removed.
     // It is now dynamically pulled from shared-characters.js hosted by 3D-Unified-Workspace!
 
@@ -789,6 +799,10 @@
         requestAnimationFrame(animate);
         var time = performance.now(), delta = Math.min((time - prevTime) / 1000, 0.1), t = time * 0.001;
         
+        environmentUpdatables.forEach(u => {
+            if (u.update) u.update(delta);
+        });
+
         if (window.sharedWater) {
             window.sharedWater.material.uniforms['time'].value += delta;
         }
