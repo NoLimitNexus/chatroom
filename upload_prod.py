@@ -40,9 +40,14 @@ for file in files_to_upload:
     with open(local_path, 'rb') as f:
         content = base64.b64encode(f.read()).decode()
     remote_path = f"{remote_dir}/{file}"
-    # Write file via base64 decode over SSH
-    cmd = f'echo "{content}" | base64 -d > {remote_path}'
+    
+    # Write file via base64 decode streamed to stdin
+    cmd = f'base64 -d > {remote_path}'
     stdin, stdout, stderr = client.exec_command(cmd)
+    stdin.write(content)
+    stdin.flush()
+    stdin.channel.shutdown_write()
+    
     stdout.read()  # wait for completion
     err = stderr.read().decode().strip()
     if err:
