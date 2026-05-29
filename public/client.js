@@ -157,12 +157,12 @@
     }
 
     // Drop item from inventory onto the 3D ground
-    function dropItemOnGround(idx) {
+    function dropItemOnGround(idx, skipUIUpdate = false, skipChatMessage = false) {
         const item = playerItems[idx];
         if (!item || !myCharacter) return;
         playerItems[idx] = null;
-        updateInventoryUI();
-        addChatMessage('System', 'Dropped ' + item.name, 0xffaa00);
+        if (!skipUIUpdate) updateInventoryUI();
+        if (!skipChatMessage) addChatMessage('System', 'Dropped ' + item.name, 0xffaa00);
 
         // Spawn 3D pickup in front of the player
         const dropPos = myCharacter.position.clone();
@@ -177,8 +177,16 @@
         const dropAllBtn = document.getElementById('drop-all-btn');
         if (dropAllBtn) {
             dropAllBtn.addEventListener('click', function() {
+                let droppedCount = 0;
                 for (let i = 0; i < 20; i++) {
-                    if (playerItems[i]) dropItemOnGround(i);
+                    if (playerItems[i]) {
+                        dropItemOnGround(i, true, true);
+                        droppedCount++;
+                    }
+                }
+                if (droppedCount > 0) {
+                    updateInventoryUI();
+                    addChatMessage('System', `Dropped all items (${droppedCount} item(s)).`, 0xffaa00);
                 }
             });
         }

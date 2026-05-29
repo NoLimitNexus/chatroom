@@ -63,7 +63,9 @@ app.get('/api/status', (req, res) => {
 
 app.post('/api/map', (req, res) => {
     mapData = req.body;
-    fs.writeFileSync(MAP_FILE, JSON.stringify(mapData, null, 2));
+    fs.writeFile(MAP_FILE, JSON.stringify(mapData, null, 2), (err) => {
+        if (err) console.error("Error writing map.json", err);
+    });
     io.emit('mapUpdate', mapData); // Broadcast to all connected clients
     res.json({ success: true });
 });
@@ -81,7 +83,9 @@ async function syncFromProd() {
         if (hash !== lastMapHash) {
             lastMapHash = hash;
             mapData = prodData;
-            fs.writeFileSync(MAP_FILE, JSON.stringify(mapData, null, 2));
+            fs.writeFile(MAP_FILE, JSON.stringify(mapData, null, 2), (err) => {
+                if (err) console.error("Error writing map.json", err);
+            });
             io.emit('mapUpdate', mapData);
             console.log(`[Sync] Pulled ${prodData.objects?.length || 0} objects from production`);
         }
@@ -116,7 +120,9 @@ if (fs.existsSync(ITEMS_FILE)) {
     }
 }
 function saveDroppedItems() {
-    fs.writeFileSync(ITEMS_FILE, JSON.stringify(droppedItemsNetwork, null, 2));
+    fs.writeFile(ITEMS_FILE, JSON.stringify(droppedItemsNetwork, null, 2), (err) => {
+        if (err) console.error("Error writing droppedItems.json", err);
+    });
 }
 
 function scheduleItemExpiration(itemId) {
