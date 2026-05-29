@@ -782,6 +782,9 @@
     }
 
     function spawnEnvironmentObject(data) {
+        if (boatState.active && boatState.boatGroup && boatState.boatGroup.userData.id === data.id) {
+            return;
+        }
         if (window.ObjectFactory) {
             const factoryObj = window.ObjectFactory.create(data.type, data.config);
             if (factoryObj) {
@@ -842,7 +845,11 @@
     }
 
     function clearEnvironmentObjects() {
+        const activeBoatGroup = boatState.boatGroup;
+        const activeBoatUpdatable = activeBoatGroup ? environmentUpdatables.find(u => u._group === activeBoatGroup) : null;
+
         environmentObjects.forEach(obj => {
+            if (activeBoatGroup && obj === activeBoatGroup) return;
             scene.remove(obj);
             obj.traverse(child => {
                 if (child.geometry) child.geometry.dispose();
@@ -852,10 +859,11 @@
                 }
             });
         });
-        environmentObjects = [];
-        environmentUpdatables = [];
+        
+        environmentObjects = activeBoatGroup ? [activeBoatGroup] : [];
+        environmentUpdatables = activeBoatUpdatable ? [activeBoatUpdatable] : [];
         fishingSpots = [];
-        boatObjects = [];
+        boatObjects = activeBoatGroup ? [activeBoatGroup] : [];
     }
 
     function loadMapData() {

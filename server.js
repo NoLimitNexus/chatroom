@@ -27,6 +27,17 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const MAP_FILE = path.join(DATA_DIR, 'map.json');
 
+let mapSaveTimeout = null;
+function queueMapSave() {
+    if (mapSaveTimeout) return;
+    mapSaveTimeout = setTimeout(() => {
+        fs.writeFile(MAP_FILE, JSON.stringify(mapData, null, 2), (err) => {
+            if (err) console.error("Error writing map.json", err);
+        });
+        mapSaveTimeout = null;
+    }, 5000); // Save at most once every 5 seconds
+}
+
 // Load map data or create default
 let mapData = { objects: [] };
 if (fs.existsSync(MAP_FILE)) {
@@ -194,6 +205,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('boatMoved', (data) => {
+        if (mapData && mapData.objects) {
+            let boatObj = mapData.objects.find(o => o.id === data.id && o.type === 'Boat');
+            if (boatObj) {
+                boatObj.position = { x: data.x, y: data.y, z: data.z };
+                if (!boatObj.rotation) boatObj.rotation = {};
+                boatObj.rotation.y = data.ry;
+                queueMapSave();
+            }
+        }
         socket.broadcast.emit('boatMoved', data);
     });
 
