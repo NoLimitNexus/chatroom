@@ -23,7 +23,8 @@ files_to_upload = [
     'public/campfire.js',
     'public/ripples.js',
     'public/shared-environment.js',
-    'public/shared-characters.js'
+    'public/shared-characters.js',
+    'public/hub.html'
 ]
 
 remote_dir = '/var/services/homes/nolimitnexus/steam_chatroom'

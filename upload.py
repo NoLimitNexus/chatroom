@@ -22,7 +22,8 @@ files_to_upload = [
     'public/editor.js',
     'public/ObjectFactory.js',
     'public/campfire.js',
-    'public/ripples.js'
+    'public/ripples.js',
+    'public/hub.html'
 ]
 
 remote_dir = '/home/nolimitnexus/steam_chatroom_dev'

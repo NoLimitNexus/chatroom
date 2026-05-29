@@ -37,8 +37,28 @@ if (fs.existsSync(MAP_FILE)) {
     }
 }
 
-app.get('/api/map', (req, res) => {
+app.get('/api/map', async (req, res) => {
+    if (process.env.NODE_ENV !== 'production') {
+        await syncFromProd();
+    }
     res.json(mapData);
+});
+
+// Status endpoint for admin hub
+app.get('/api/status', (req, res) => {
+    const mem = process.memoryUsage();
+    res.json({
+        uptime: process.uptime(),
+        players: Object.keys(players).length,
+        playerList: Object.values(players).map(p => ({ username: p.username, charType: p.charType })),
+        mapObjects: mapData.objects ? mapData.objects.length : 0,
+        droppedItems: Object.keys(droppedItemsNetwork).length,
+        memoryMB: Math.round(mem.rss / 1024 / 1024),
+        heapMB: Math.round(mem.heapUsed / 1024 / 1024),
+        nodeVersion: process.version,
+        env: process.env.NODE_ENV || 'development',
+        connectedSockets: io.sockets.sockets.size
+    });
 });
 
 app.post('/api/map', (req, res) => {
@@ -47,6 +67,36 @@ app.post('/api/map', (req, res) => {
     io.emit('mapUpdate', mapData); // Broadcast to all connected clients
     res.json({ success: true });
 });
+
+// Sync map from production NAS — pulls latest and broadcasts to local clients
+const PROD_MAP_URL = 'https://chatroom.nolimitnexus.com/api/map';
+let lastMapHash = '';
+
+async function syncFromProd() {
+    try {
+        const resp = await fetch(PROD_MAP_URL, { signal: AbortSignal.timeout(5000) });
+        if (!resp.ok) return;
+        const prodData = await resp.json();
+        const hash = JSON.stringify(prodData);
+        if (hash !== lastMapHash) {
+            lastMapHash = hash;
+            mapData = prodData;
+            fs.writeFileSync(MAP_FILE, JSON.stringify(mapData, null, 2));
+            io.emit('mapUpdate', mapData);
+            console.log(`[Sync] Pulled ${prodData.objects?.length || 0} objects from production`);
+        }
+    } catch (e) { /* prod unreachable, skip */ }
+}
+
+// Manual sync endpoint
+app.get('/api/sync-from-prod', async (req, res) => {
+    await syncFromProd();
+    res.json({ success: true, objects: mapData.objects?.length || 0 });
+});
+
+// Auto-sync from production every 30 seconds
+setInterval(syncFromProd, 30000);
+syncFromProd(); // Initial sync on startup
 
 // Store player state
 const players = {};
@@ -57,12 +107,27 @@ let droppedItemsNetwork = {};
 if (fs.existsSync(ITEMS_FILE)) {
     try {
         droppedItemsNetwork = JSON.parse(fs.readFileSync(ITEMS_FILE, 'utf8'));
+        // Set expirations for any items loaded from disk
+        for (let itemId in droppedItemsNetwork) {
+            scheduleItemExpiration(itemId);
+        }
     } catch (e) {
         console.error("Error reading droppedItems.json", e);
     }
 }
 function saveDroppedItems() {
     fs.writeFileSync(ITEMS_FILE, JSON.stringify(droppedItemsNetwork, null, 2));
+}
+
+function scheduleItemExpiration(itemId) {
+    setTimeout(() => {
+        if (droppedItemsNetwork[itemId]) {
+            delete droppedItemsNetwork[itemId];
+            saveDroppedItems();
+            // Re-use itemPickedUp event to tell clients to remove the object from the world
+            io.emit('itemPickedUp', itemId); 
+        }
+    }, 120000); // 2 minutes
 }
 
 let itemCounter = Date.now();
@@ -111,6 +176,7 @@ io.on('connection', (socket) => {
         droppedItemsNetwork[itemId] = { ...data, itemId };
         saveDroppedItems();
         io.emit('itemDropped', droppedItemsNetwork[itemId]);
+        scheduleItemExpiration(itemId);
     });
 
     socket.on('itemPickedUp', (itemId) => {
@@ -119,6 +185,10 @@ io.on('connection', (socket) => {
             saveDroppedItems();
             io.emit('itemPickedUp', itemId);
         }
+    });
+
+    socket.on('boatMoved', (data) => {
+        socket.broadcast.emit('boatMoved', data);
     });
 
     // Handle movement
@@ -132,6 +202,7 @@ io.on('connection', (socket) => {
             players[socket.id].isFishing = movementData.isFishing;
             players[socket.id].isCooking = movementData.isCooking;
             players[socket.id].camPitch = movementData.camPitch;
+            players[socket.id].camYaw = movementData.camYaw;
             players[socket.id].useFBX = movementData.useFBX;
 
             socket.broadcast.emit('playerMoved', { 
@@ -148,9 +219,11 @@ io.on('connection', (socket) => {
                 localVz: movementData.localVz,
                 inventory: movementData.inventory,
                 camPitch: movementData.camPitch,
+                camYaw: movementData.camYaw,
                 useFBX: movementData.useFBX,
                 isFishing: movementData.isFishing,
-                isCooking: movementData.isCooking
+                isCooking: movementData.isCooking,
+                fishingTarget: movementData.fishingTarget
             });
         }
     });
@@ -158,7 +231,20 @@ io.on('connection', (socket) => {
     // Handle shooting
     socket.on('playerShoot', (data) => {
         if (players[socket.id]) {
-            socket.broadcast.emit('playerShoot', { id: socket.id });
+            // Broadcast with full context so all observers can render the shot
+            io.emit('remoteShoot', {
+                id: socket.id,
+                inventory: players[socket.id].inventory || 0,
+                x: players[socket.id].x,
+                y: players[socket.id].y,
+                z: players[socket.id].z,
+                ry: players[socket.id].ry,
+                camPitch: players[socket.id].camPitch || 0,
+                camYaw: players[socket.id].camYaw || players[socket.id].ry,
+                aimDirX: data.aimDirX,
+                aimDirY: data.aimDirY,
+                aimDirZ: data.aimDirZ
+            });
         }
     });
 

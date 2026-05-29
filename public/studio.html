@@ -3,56 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Character Studio</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Goop Lab — Character Workshop</title>
+    <meta name="description" content="Goop character model workshop for prototyping, effects testing, and showcase.">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="studio.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🟢</text></svg>">
 </head>
 <body>
     <div id="canvas-container"></div>
-    
-    <div id="ui-layer">
-        <div class="sidebar glass-panel">
-            <div class="header">
-                <h1>STUDIO</h1>
-                <p>Customize and export aesthetics.</p>
-                <div class="mode-tabs" style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="mode-tab glow-btn active" data-mode="character" style="flex:1; padding: 8px; font-size: 0.8rem;">CHARACTER</button>
-                    <button class="mode-tab glow-btn" data-mode="environment" style="flex:1; padding: 8px; font-size: 0.8rem;">ENVIRONMENT</button>
-                    <a href="/editor.html" class="mode-tab glow-btn" style="flex:1; padding: 8px; font-size: 0.8rem; text-decoration: none; text-align: center; display: inline-block;">WORLD EDITOR</a>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h3 id="selector-title">SELECT MODEL</h3>
-                <div class="model-selector" id="model-selector">
-                    <!-- Injected by JS -->
-                </div>
-            </div>
 
-            <div class="section" id="controls-section">
-                <h3>AESTHETICS & SHAPING</h3>
-                <div id="dynamic-controls">
-                    <!-- Controls injected here by JS -->
+    <!-- Top Bar -->
+    <div id="top-bar">
+        <div class="top-bar-left">
+            <div class="logo">
+                <span class="logo-icon">🧪</span>
+                <div>
+                    <h1>GOOP LAB</h1>
+                    <p>Character Workshop</p>
                 </div>
             </div>
-
-            <div class="section export-section">
-                <button id="export-btn" class="glow-btn">EXPORT SETTINGS</button>
-                <textarea id="export-output" readonly placeholder="Exported JSON will appear here..."></textarea>
+        </div>
+        <div class="top-bar-center">
+            <!-- Version Tabs -->
+            <div class="version-tabs">
+                <button class="ver-tab active" id="tab-original" data-ver="original">ORIGINAL</button>
+                <button class="ver-tab" id="tab-prototype" data-ver="prototype">PROTOTYPE</button>
             </div>
+            <div class="vp-divider"></div>
+            <div class="viewport-controls">
+                <button class="vp-btn" id="btn-turntable" title="Auto Turntable">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+                </button>
+                <button class="vp-btn" id="btn-reset-camera" title="Reset Camera">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="top-bar-right">
+            <button class="control-mode-btn" id="btn-control">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2v20"/></svg>
+                TAKE CONTROL
+            </button>
+            <a href="/editor.html" class="nav-link">EDITOR</a>
+            <a href="/" class="nav-link">GAME</a>
+        </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div id="sidebar-right" class="glass-panel">
+        <div class="panel-tabs">
+            <button class="p-tab active" data-panel="shape">SHAPE</button>
+            <button class="p-tab" data-panel="material">MATERIAL</button>
+            <button class="p-tab" data-panel="effects">FX</button>
+            <button class="p-tab" data-panel="scene">SCENE</button>
+        </div>
+
+        <div class="panel-body" id="panel-shape">
+            <div class="sidebar-section">
+                <h3 class="section-title">BODY</h3>
+                <div id="shape-controls"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3 class="section-title">ANIMATION</h3>
+                <div class="anim-controls">
+                    <button class="anim-btn active" data-anim="idle">IDLE</button>
+                    <button class="anim-btn" data-anim="walk">WALK</button>
+                    <button class="anim-btn" data-anim="run">RUN</button>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h3 class="section-title">WEAPONS</h3>
+                <div class="anim-controls">
+                    <button class="weapon-btn active" data-weapon="0">NONE</button>
+                    <button class="weapon-btn" data-weapon="1">GUN</button>
+                    <button class="weapon-btn" data-weapon="2">AXE</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-body hidden" id="panel-material">
+            <div class="sidebar-section">
+                <h3 class="section-title">SURFACE</h3>
+                <div id="material-controls"></div>
+            </div>
+        </div>
+
+        <div class="panel-body hidden" id="panel-effects">
+            <div class="sidebar-section" id="fx-proto-section">
+                <h3 class="section-title">DRIP SYSTEM <span class="badge">PROTOTYPE</span></h3>
+                <div id="fx-controls"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3 class="section-title">GLOW</h3>
+                <div id="glow-controls"></div>
+            </div>
+        </div>
+
+        <div class="panel-body hidden" id="panel-scene">
+            <div class="sidebar-section">
+                <h3 class="section-title">ENVIRONMENT</h3>
+                <div id="scene-controls"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3 class="section-title">LIGHTING</h3>
+                <div id="light-controls"></div>
+            </div>
+        </div>
+
+        <div class="export-bar">
+            <button id="export-btn" class="glow-btn">EXPORT CONFIG</button>
+            <textarea id="export-output" readonly placeholder="Click Export..."></textarea>
+        </div>
+    </div>
+
+    <!-- Control Mode HUD -->
+    <div id="control-hud" class="hidden">
+        <div id="crosshair"></div>
+        <div id="controls-hint">
+            <div><span>WASD</span> Move</div>
+            <div><span>SHIFT</span> Sprint</div>
+            <div><span>SPACE</span> Jump</div>
+            <div><span>ESC</span> Exit</div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status-bar">
+        <div class="status-left">
+            <span class="status-item" id="status-ver">ORIGINAL</span>
+            <span class="status-divider">|</span>
+            <span class="status-item" id="status-anim">idle</span>
+            <span class="status-divider">|</span>
+            <span class="status-item" id="status-fps">—</span>
+        </div>
+        <div class="status-right">
+            <span class="status-item" id="status-drips">DRIPS: 0</span>
         </div>
     </div>
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.140.0/examples/js/objects/MarchingCubes.js"></script>
-    
-    <!-- Original Shared Characters (for base logic) -->
     <script src="https://nolimitnexus.github.io/3D-Unified-Workspace/shared-characters.js"></script>
-    <script src="campfire.js"></script>
-    
-    <!-- Studio Logic -->
     <script src="studio.js"></script>
 </body>
 </html>

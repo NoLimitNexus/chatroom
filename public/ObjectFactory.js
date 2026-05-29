@@ -15,25 +15,113 @@ window.ObjectFactory = {
         'Rock':        { icon: '🪨', category: 'Nature' },
         'Bush':        { icon: '🌿', category: 'Nature' },
         'FishingSpot': { icon: '🐟', category: 'Interactive' },
+        'Boat':        { icon: '⛵', category: 'Interactive' },
         'Barrel':      { icon: '🛢️', category: 'Props' },
         'Crate':       { icon: '📦', category: 'Props' },
         'Fence':       { icon: '🏗️', category: 'Structures' }
     },
 
+    createWoodTexture: function(baseColorHex, stripeColorHex, scale = 1) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.fillStyle = baseColorHex;
+        ctx.fillRect(0, 0, 512, 512);
+        
+        ctx.strokeStyle = stripeColorHex;
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 512; i += 12) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            for (let x = 0; x <= 512; x += 16) {
+                const y = i + Math.sin(x * 0.03 + i * 0.1) * 8 + (Math.random() - 0.5) * 2;
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+        
+        // Add knots
+        ctx.fillStyle = stripeColorHex;
+        for (let k = 0; k < 3; k++) {
+            const knotX = Math.random() * 512;
+            const knotY = Math.random() * 512;
+            const rx = 15 + Math.random() * 20;
+            const ry = 5 + Math.random() * 10;
+            ctx.save();
+            ctx.translate(knotX, knotY);
+            ctx.rotate(Math.random() * Math.PI);
+            ctx.scale(1, ry / rx);
+            ctx.beginPath();
+            ctx.arc(0, 0, rx, 0, Math.PI * 2);
+            ctx.strokeStyle = stripeColorHex;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+        }
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(scale, scale);
+        return texture;
+    },
+
+    createWoodBumpMap: function(scale = 1) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, 512, 512);
+        
+        ctx.strokeStyle = '#404040';
+        ctx.lineWidth = 4;
+        for (let i = 0; i < 512; i += 12) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            for (let x = 0; x <= 512; x += 16) {
+                const y = i + Math.sin(x * 0.03 + i * 0.1) * 8 + (Math.random() - 0.5) * 2;
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(scale, scale);
+        return texture;
+    },
+
+    _cache: {},
+
     buildFishingRod: function() {
+        const c = this._cache;
+        
+        // Cache Geometries
+        if (!c.gripGeo) c.gripGeo = new THREE.CylinderGeometry(0.022, 0.03, 0.35, 8);
+        if (!c.reelGeo) c.reelGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.05, 10);
+        if (!c.guideGeo) c.guideGeo = new THREE.TorusGeometry(0.012, 0.003, 4, 8);
+        if (!c.tipGeo) c.tipGeo = new THREE.SphereGeometry(0.008, 6, 6);
+        
+        // Cache Materials
+        if (!c.gripMat) c.gripMat = new THREE.MeshStandardMaterial({ color: 0xc4a265, roughness: 0.9 });
+        if (!c.reelMat) c.reelMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.7, roughness: 0.3 });
+        if (!c.guideMat) c.guideMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.5 });
+        if (!c.tipMat) c.tipMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6 });
+
         const rod = new THREE.Group();
 
         // Handle / grip (cork-colored)
-        const gripGeo = new THREE.CylinderGeometry(0.022, 0.03, 0.35, 8);
-        const gripMat = new THREE.MeshStandardMaterial({ color: 0xc4a265, roughness: 0.9 });
-        const grip = new THREE.Mesh(gripGeo, gripMat);
+        const grip = new THREE.Mesh(c.gripGeo, c.gripMat);
         grip.position.y = 0.175;
         rod.add(grip);
 
         // Reel (metallic)
-        const reelGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.05, 10);
-        const reelMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.7, roughness: 0.3 });
-        const reel = new THREE.Mesh(reelGeo, reelMat);
+        const reel = new THREE.Mesh(c.reelGeo, c.reelMat);
         reel.rotation.x = Math.PI / 2;
         reel.position.set(0.035, 0.22, 0);
         rod.add(reel);
@@ -51,20 +139,21 @@ window.ObjectFactory = {
             parent.add(pivot);
 
             const thick = 0.018 - (i * 0.0022); // taper
-            const segGeo = new THREE.CylinderGeometry(Math.max(thick - 0.002, 0.003), thick, segLen, 6);
-            const segMat = new THREE.MeshStandardMaterial({
+            const segGeoName = 'segGeo' + i;
+            if (!c[segGeoName]) c[segGeoName] = new THREE.CylinderGeometry(Math.max(thick - 0.002, 0.003), thick, segLen, 6);
+            
+            const segMatName = 'segMat' + i;
+            if (!c[segMatName]) c[segMatName] = new THREE.MeshStandardMaterial({
                 color: new THREE.Color().setHSL(0.07, 0.35, 0.32 + i * 0.04),
                 roughness: 0.5
             });
-            const seg = new THREE.Mesh(segGeo, segMat);
+            const seg = new THREE.Mesh(c[segGeoName], c[segMatName]);
             seg.position.y = segLen / 2;
             pivot.add(seg);
 
             // Line guides (small rings)
             if (i > 0 && i < segCount - 1) {
-                const guideGeo = new THREE.TorusGeometry(0.012, 0.003, 4, 8);
-                const guideMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.5 });
-                const guide = new THREE.Mesh(guideGeo, guideMat);
+                const guide = new THREE.Mesh(c.guideGeo, c.guideMat);
                 guide.position.y = segLen;
                 guide.rotation.x = Math.PI / 2;
                 pivot.add(guide);
@@ -75,9 +164,7 @@ window.ObjectFactory = {
         }
 
         // Tip-top guide
-        const tipGeo = new THREE.SphereGeometry(0.008, 6, 6);
-        const tipMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6 });
-        const tip = new THREE.Mesh(tipGeo, tipMat);
+        const tip = new THREE.Mesh(c.tipGeo, c.tipMat);
         tip.position.y = segLen;
         parent.add(tip);
 
@@ -91,8 +178,23 @@ window.ObjectFactory = {
     attachFishingRodToPlayer: function(playerMesh, scene) {
         if (playerMesh.userData.fishingRodData) return;
         const { rodGroup, segments } = this.buildFishingRod();
+        
+        // Always attach to player mesh directly to ensure visibility and scale
+        if (playerMesh.userData.useFBX) {
+            // Adjust position for FBX models (which have different origins/scales)
+            rodGroup.position.set(0.3, 1.2, 0.5);
+            rodGroup.rotation.set(Math.PI / 4, 0, -Math.PI / 8);
+        }
         playerMesh.add(rodGroup);
 
+        const c = this._cache;
+        if (!c.bobGeo) c.bobGeo = new THREE.SphereGeometry(0.05, 8, 8);
+        if (!c.bobMat) c.bobMat = new THREE.MeshStandardMaterial({
+            color: 0xff2222, emissive: 0xff4444, emissiveIntensity: 0.4, roughness: 0.3
+        });
+        if (!c.bob2Geo) c.bob2Geo = new THREE.SphereGeometry(0.048, 8, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+        if (!c.bob2Mat) c.bob2Mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+        
         // Fishing line (world space) — bezier curve from tip to water
         const lineMat = new THREE.LineBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.6 });
         const lineGeo = new THREE.BufferGeometry();
@@ -100,15 +202,9 @@ window.ObjectFactory = {
         scene.add(fishLine);
 
         // Bobber / float
-        const bobGeo = new THREE.SphereGeometry(0.05, 8, 8);
-        const bobMat = new THREE.MeshStandardMaterial({
-            color: 0xff2222, emissive: 0xff4444, emissiveIntensity: 0.4, roughness: 0.3
-        });
-        const bob = new THREE.Mesh(bobGeo, bobMat);
+        const bob = new THREE.Mesh(c.bobGeo, c.bobMat);
         // White bottom half
-        const bob2Geo = new THREE.SphereGeometry(0.048, 8, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
-        const bob2Mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-        const bob2 = new THREE.Mesh(bob2Geo, bob2Mat);
+        const bob2 = new THREE.Mesh(c.bob2Geo, c.bob2Mat);
         bob.add(bob2);
         scene.add(bob);
 
@@ -127,10 +223,7 @@ window.ObjectFactory = {
         if (data.bob) {
             scene.remove(data.bob);
             data.bob.traverse((child) => {
-                if (child.isMesh) {
-                    if (child.geometry) child.geometry.dispose();
-                    if (child.material) child.material.dispose();
-                }
+                // Do not dispose cached materials and geometries here
             });
         }
         playerMesh.userData.fishingRodData = null;
@@ -489,8 +582,7 @@ window.ObjectFactory = {
             updatable = {
                 _light: spotLight,
                 _bubbles: bubbles,
-                update: function(dt) {
-                    const t = Date.now() * 0.001;
+                update: function(t, dt) {
                     this._light.intensity = 1.2 + Math.sin(t * 3) * 0.4;
                     this._bubbles.forEach(b => {
                         if (b.userData.popping) {
@@ -515,6 +607,144 @@ window.ObjectFactory = {
                         b.position.z = b.userData.initialZ + Math.sin(t * 3 + b.userData.offset) * b.userData.amp;
                         if (b.position.y > 1.0) b.userData.popping = true;
                     });
+                }
+            };
+            break;
+        }
+
+        // ---- BOAT ----
+        case 'Boat': {
+            group = new THREE.Group();
+            group.userData.interactable = true;
+            group.userData.action = 'boat';
+            group.userData.type = 'Boat';
+
+            const woodTex = window.ObjectFactory.createWoodTexture('#8B6914', '#5A3E10', 1);
+            const woodBump = window.ObjectFactory.createWoodBumpMap(1);
+            const darkWoodTex = window.ObjectFactory.createWoodTexture('#5C4010', '#3D280A', 1);
+            const darkWoodBump = window.ObjectFactory.createWoodBumpMap(1);
+
+            const woodMat = new THREE.MeshStandardMaterial({
+                map: woodTex,
+                bumpMap: woodBump,
+                bumpScale: 0.02,
+                roughness: 0.8,
+                metalness: 0.1
+            });
+            const darkWoodMat = new THREE.MeshStandardMaterial({
+                map: darkWoodTex,
+                bumpMap: darkWoodBump,
+                bumpScale: 0.02,
+                roughness: 0.85,
+                metalness: 0.05
+            });
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.4, metalness: 0.7 });
+
+            const visualGroup = new THREE.Group();
+            visualGroup.rotation.y = Math.PI / 2;
+            group.add(visualGroup);
+
+            // Bottom hull
+            const bottomGeo = new THREE.BoxGeometry(2.6, 0.12, 1.0);
+            const bottom = new THREE.Mesh(bottomGeo, darkWoodMat);
+            bottom.position.y = 0.0;
+            bottom.receiveShadow = true;
+            visualGroup.add(bottom);
+
+            // Side walls
+            const sideGeo = new THREE.BoxGeometry(2.6, 0.4, 0.08);
+            [-0.48, 0.48].forEach(z => {
+                const side = new THREE.Mesh(sideGeo, woodMat);
+                side.position.set(0, 0.24, z);
+                side.castShadow = true;
+                visualGroup.add(side);
+            });
+
+            // Bow (front tapered)
+            const bowGeo = new THREE.BoxGeometry(0.08, 0.4, 1.04);
+            const bow = new THREE.Mesh(bowGeo, woodMat);
+            bow.position.set(1.26, 0.24, 0);
+            bow.castShadow = true;
+            visualGroup.add(bow);
+
+
+
+            // Stern (back)
+            const sternGeo = new THREE.BoxGeometry(0.08, 0.5, 1.04);
+            const stern = new THREE.Mesh(sternGeo, woodMat);
+            stern.position.set(-1.26, 0.27, 0);
+            stern.castShadow = true;
+            visualGroup.add(stern);
+
+            // Plank details on hull bottom
+            for (let i = -2; i <= 2; i++) {
+                const plankGeo = new THREE.BoxGeometry(0.02, 0.01, 0.94);
+                const plank = new THREE.Mesh(plankGeo, darkWoodMat);
+                plank.position.set(i * 0.5, 0.065, 0);
+                visualGroup.add(plank);
+            }
+
+            // Seat 1 (back)
+            const seatGeo = new THREE.BoxGeometry(0.12, 0.06, 0.82);
+            const seat1 = new THREE.Mesh(seatGeo, darkWoodMat);
+            seat1.position.set(-0.5, 0.2, 0);
+            visualGroup.add(seat1);
+
+            // Seat 2 (middle)
+            const seat2 = new THREE.Mesh(seatGeo, darkWoodMat);
+            seat2.position.set(0.3, 0.2, 0);
+            visualGroup.add(seat2);
+
+            // Oar locks (metal pins on sides)
+            const lockGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.15, 6);
+            [-0.52, 0.52].forEach(z => {
+                const lock = new THREE.Mesh(lockGeo, metalMat);
+                lock.position.set(0, 0.42, z);
+                visualGroup.add(lock);
+            });
+
+            // Oars
+            const oarShaftGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.6, 6);
+            const oarBladeTex = window.ObjectFactory.createWoodTexture('#6B4226', '#4A2A18', 1);
+            const oarBladeMat = new THREE.MeshStandardMaterial({
+                map: oarBladeTex,
+                roughness: 0.8
+            });
+            const oarBladeGeo = new THREE.BoxGeometry(0.18, 0.02, 0.08);
+
+            [-1, 1].forEach(side => {
+                const oarGroup = new THREE.Group();
+                const shaft = new THREE.Mesh(oarShaftGeo, woodMat);
+                shaft.rotation.z = Math.PI / 2;
+                oarGroup.add(shaft);
+                const blade = new THREE.Mesh(oarBladeGeo, oarBladeMat);
+                blade.position.set(side * 0.85, 0, 0);
+                oarGroup.add(blade);
+                oarGroup.position.set(0, 0.35, side * 0.52);
+                oarGroup.rotation.x = side * 0.3;
+                visualGroup.add(oarGroup);
+            });
+
+            // Hit cylinder for raycasting (transparent, not invisible — visible:false blocks raycasting in r128)
+            const boatHitGeo = new THREE.CylinderGeometry(2.0, 2.0, 1.5, 8);
+            const boatHitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const boatHit = new THREE.Mesh(boatHitGeo, boatHitMat);
+            boatHit.position.y = 0.3;
+            boatHit.userData.interactable = true;
+            boatHit.userData.action = 'boat';
+            boatHit.userData.type = 'Boat';
+            boatHit.userData.parentGroup = group;
+            group.add(boatHit);
+
+            // Bobbing animation — _baseY is set lazily from current group position on first update
+            updatable = {
+                _group: group,
+                _baseY: null,
+                update: function(t, delta) {
+                    if (this._baseY === null) this._baseY = this._group.position.y;
+                    this._group.position.y = this._baseY + Math.sin(t * 1.5) * 0.05;
+                    visualGroup.rotation.x = Math.sin(t * 2.0) * 0.03;
+                    visualGroup.rotation.z = Math.cos(t * 1.2) * 0.02;
                 }
             };
             break;

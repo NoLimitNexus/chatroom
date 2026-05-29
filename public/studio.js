@@ -1,468 +1,549 @@
-// studio.js - Character Studio Logic
+// studio.js — Goop Lab
+(function(){
+'use strict';
 
-// --- THREE.JS SCENE SETUP ---
-const container = document.getElementById('canvas-container');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0f1e);
-scene.fog = new THREE.FogExp2(0x0a0f1e, 0.05);
+// STATE
+var ver='original', animState='idle', turntable=false, inventory=0;
+var controlMode=false, animTime=0, jumpTime=-1;
+var keys={}, camYaw=0, camPitch=0;
+var goop=null, drips=[], dripPool=[];
+var fpsN=0, fpsT=performance.now();
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 1.2, 3);
+// CONFIG — sliders write here, render reads here
+var C = {
+  color:'#059669', scaleX:1, scaleY:1, scaleZ:1,
+  opacity:0.4, roughness:0.2, metalness:0.4, clearcoat:1,
+  emissiveColor:'#064e3b', emissiveIntensity:0.1,
+  // prototype extras
+  dripRate:3, dripSize:0.04, dripLife:2, dripGravity:2,
+  wobbleAmp:0.012, wobbleSpeed:3,
+  innerGlow:0.5, transmission:0.6, ior:1.45, thickness:0.8,
+  // scene
+  bgColor:'#0a0f1e', floorColor:'#0f172a', fogDensity:0.05,
+  keyIntensity:1.2, fillColor:'#0ea5e9', rimColor:'#818cf8', ambient:0.6,
+  gridOpacity:0.2
+};
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+// THREE SETUP
+var container=document.getElementById('canvas-container');
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(C.bgColor);
+scene.fog=new THREE.FogExp2(C.bgColor,C.fogDensity);
+
+var camera=new THREE.PerspectiveCamera(45,1,0.1,100);
+camera.position.set(0,1,3.5);
+var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.0;
 container.appendChild(renderer.domElement);
 
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.target.set(0, 0.9, 0); // Aim at chest height
-controls.minDistance = 1;
-controls.maxDistance = 6;
-controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't go too far below ground
+var orbit=new THREE.OrbitControls(camera,renderer.domElement);
+orbit.enableDamping=true; orbit.dampingFactor=0.06;
+orbit.target.set(0,0.5,0); orbit.minDistance=1; orbit.maxDistance=8;
 
-// --- LIGHTING ---
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
+// Lighting
+var ambLight=new THREE.AmbientLight(0xffffff,C.ambient); scene.add(ambLight);
+var dirLight=new THREE.DirectionalLight(0xffffff,C.keyIntensity);
+dirLight.position.set(3,5,4); dirLight.castShadow=true; scene.add(dirLight);
+var fillLight=new THREE.DirectionalLight(C.fillColor,0.5);
+fillLight.position.set(-3,2,-3); scene.add(fillLight);
+var rimLight=new THREE.DirectionalLight(C.rimColor,0.8);
+rimLight.position.set(0,3,-5); scene.add(rimLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-dirLight.position.set(3, 5, 4);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-scene.add(dirLight);
+// Floor
+var grid=new THREE.GridHelper(20,20,0x38bdf8,0x1e293b);
+grid.position.y=-0.01; grid.material.opacity=C.gridOpacity; grid.material.transparent=true;
+scene.add(grid);
+var floorMat=new THREE.MeshStandardMaterial({color:C.floorColor,roughness:0.1,metalness:0.8});
+var floor=new THREE.Mesh(new THREE.CircleGeometry(6,64),floorMat);
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
 
-const fillLight = new THREE.DirectionalLight(0x0ea5e9, 0.5); // Cyan fill
-fillLight.position.set(-3, 2, -3);
-scene.add(fillLight);
+// Resize
+function onResize(){
+  var w=container.clientWidth,h=container.clientHeight;
+  if(!w||!h) return;
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w,h);
+}
+window.addEventListener('resize',onResize);
 
-const rimLight = new THREE.DirectionalLight(0x818cf8, 0.8); // Purple rim
-rimLight.position.set(0, 3, -5);
-scene.add(rimLight);
+// BUILD PROTOTYPE GOOP — enhanced jelly creature
+function buildProtoGoop(){
+  var group=new THREE.Group();
+  var geo=new THREE.SphereGeometry(0.35,32,32);
+  var pos=geo.attributes.position;
+  // Store original positions for wobble
+  var orig=new Float32Array(pos.array.length);
+  orig.set(pos.array);
 
-// --- ENVIRONMENT ---
-// Grid/Floor
-const gridHelper = new THREE.GridHelper(20, 20, 0x38bdf8, 0x1e293b);
-gridHelper.position.y = -0.01;
-gridHelper.material.opacity = 0.2;
-gridHelper.material.transparent = true;
-scene.add(gridHelper);
+  // Shape deformation (same as original)
+  for(var i=0;i<pos.count;i++){
+    var x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+    var yN=(y+0.35)/0.7;
+    var sf=1.4-Math.pow(yN,1.5)*0.7;
+    var tail=0;
+    if(z<0){ tail=Math.pow(1-yN,2)*0.6*(-z/0.35); }
+    pos.setXYZ(i,x*sf,y,z*sf-tail);
+  }
+  // Save shaped positions as the base
+  var shaped=new Float32Array(pos.array.length);
+  shaped.set(pos.array);
+  geo.computeVertexNormals();
 
-const floorGeo = new THREE.CircleGeometry(5, 64);
-const floorMat = new THREE.MeshStandardMaterial({ 
-    color: 0x0f172a, 
-    roughness: 0.1, 
-    metalness: 0.8 
-});
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
+  var mat=new THREE.MeshPhysicalMaterial({
+    color:C.color, roughness:C.roughness, metalness:C.metalness,
+    transparent:true, opacity:C.opacity,
+    clearcoat:C.clearcoat, clearcoatRoughness:0.05,
+    emissive:C.emissiveColor, emissiveIntensity:C.emissiveIntensity,
+    transmission:C.transmission, thickness:C.thickness, ior:C.ior,
+    depthWrite:true, side:THREE.DoubleSide
+  });
 
-// --- CHARACTER MANAGEMENT ---
-let currentCharacter = null;
-let currentType = 'modular';
-let animTime = 0;
+  var blob=new THREE.Mesh(geo,mat);
+  blob.position.y=0.35; blob.castShadow=true;
+  blob.userData.origPositions=orig;
+  blob.userData.shapedPositions=shaped;
 
-// Configuration State
-const charConfigs = {
-    'modular': {
-        colorTorso: '#3b82f6',
-        colorHead: '#ffdbac',
-        colorLimbs: '#1e40af',
-        scaleTorso: 1.0,
-        scaleHead: 1.0,
-        scaleArms: 1.0,
-        scaleLegs: 1.0
-    },
-    'goop': {
-        colorMain: '#059669',
-        scaleX: 1.0,
-        scaleY: 1.0,
-        scaleZ: 1.0
-    },
-    'goop-man': {
-        colorMain: '#059669',
-        thickness: 0.5,
-        roughness: 0.1,
-        scaleTorso: 1.0,
-        scaleHead: 1.0,
-        scaleArms: 1.0,
-        scaleLegs: 1.0
-    }
-};
+  // Inner glow core
+  var innerMat=new THREE.MeshBasicMaterial({
+    color:0x0fffc2, transparent:true, opacity:C.innerGlow*0.3
+  });
+  var inner=new THREE.Mesh(new THREE.SphereGeometry(0.18,16,16),innerMat);
+  inner.position.y=0.05;
+  blob.add(inner);
+  group.userData.innerCore=inner;
+  group.userData.innerMat=innerMat;
 
-function applyConfigToMesh(mesh, type) {
-    const config = charConfigs[type];
-    const bp = mesh.userData.bp;
+  // Eyes (same style but with glow)
+  var eyeGeo=new THREE.SphereGeometry(0.06,16,16);
+  var eyeMat=new THREE.MeshBasicMaterial({color:0x0fffc2});
+  var pupilGeo=new THREE.SphereGeometry(0.03,16,16);
+  var pupilMat=new THREE.MeshBasicMaterial({color:0x0f172a});
 
-    if (type === 'modular') {
-        if (bp) {
-            bp.torso.material.color.set(config.colorTorso);
-            bp.head.material.color.set(config.colorHead);
-            if (bp.pelvis.mesh) bp.pelvis.mesh.material.color.set(config.colorTorso);
-            else bp.pelvis.material.color.set(config.colorTorso);
-            
-            if (bp.armL.mesh) bp.armL.mesh.material.color.set(config.colorLimbs);
-            else bp.armL.children[0].material.color.set(config.colorLimbs);
-            if (bp.armR.mesh) bp.armR.mesh.material.color.set(config.colorLimbs);
-            else bp.armR.children[0].material.color.set(config.colorLimbs);
-            if (bp.legL.mesh) bp.legL.mesh.material.color.set(config.colorLimbs);
-            else bp.legL.children[0].material.color.set(config.colorLimbs);
-            if (bp.legR.mesh) bp.legR.mesh.material.color.set(config.colorLimbs);
-            else bp.legR.children[0].material.color.set(config.colorLimbs);
+  var leye=new THREE.Group();
+  leye.add(new THREE.Mesh(eyeGeo,eyeMat));
+  var lp=new THREE.Mesh(pupilGeo,pupilMat); lp.position.z=0.04; leye.add(lp);
+  leye.position.set(-0.14,0.15,0.3); blob.add(leye);
 
-            // Shape
-            bp.torso.scale.set(config.scaleTorso, config.scaleTorso, config.scaleTorso);
-            bp.head.scale.set(config.scaleHead, config.scaleHead, config.scaleHead);
-            
-            // Arms (Scale Y)
-            bp.armL.scale.set(config.scaleArms, config.scaleArms, config.scaleArms);
-            bp.armR.scale.set(config.scaleArms, config.scaleArms, config.scaleArms);
-            
-            // Legs
-            bp.legL.scale.set(config.scaleLegs, config.scaleLegs, config.scaleLegs);
-            bp.legR.scale.set(config.scaleLegs, config.scaleLegs, config.scaleLegs);
-        }
-    } else if (type === 'goop') {
-        if (mesh.userData.blob) {
-            mesh.userData.blob.material.color.set(config.colorMain);
-            mesh.userData.blob.scale.set(config.scaleX, config.scaleY, config.scaleZ);
-        }
-    } else if (type === 'goop-man') {
-        if (bp) {
-            // Apply material changes to the first mesh we find (all use same material ref)
-            bp.torso.material.color.set(config.colorMain);
-            bp.torso.material.thickness = config.thickness;
-            bp.torso.material.roughness = config.roughness;
+  var reye=new THREE.Group();
+  reye.add(new THREE.Mesh(eyeGeo,eyeMat));
+  var rp=new THREE.Mesh(pupilGeo,pupilMat); rp.position.z=0.04; reye.add(rp);
+  reye.position.set(0.14,0.15,0.3); blob.add(reye);
 
-            bp.torso.scale.set(config.scaleTorso, config.scaleTorso, config.scaleTorso);
-            bp.head.scale.set(config.scaleHead, config.scaleHead, config.scaleHead);
-            bp.armL.scale.set(config.scaleArms, config.scaleArms, config.scaleArms);
-            bp.armR.scale.set(config.scaleArms, config.scaleArms, config.scaleArms);
-            bp.legL.scale.set(config.scaleLegs, config.scaleLegs, config.scaleLegs);
-            bp.legR.scale.set(config.scaleLegs, config.scaleLegs, config.scaleLegs);
-        }
-    }
-    
-    updateExportOutput();
+  // Eye glow halos
+  var haloMat=new THREE.MeshBasicMaterial({color:0x0fffc2,transparent:true,opacity:0.15});
+  leye.add(new THREE.Mesh(new THREE.SphereGeometry(0.09,8,8),haloMat));
+  reye.add(new THREE.Mesh(new THREE.SphereGeometry(0.09,8,8),haloMat));
+
+  // Weapons (same as original goop)
+  var wMat=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.6});
+  var gun=new THREE.Group();
+  gun.position.set(-0.5,0.35,0);
+  gun.add(new THREE.Mesh(new THREE.BoxGeometry(0.04,0.05,0.3),wMat));
+  var grip=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.12,0.05),wMat);
+  grip.position.set(0,-0.06,0); gun.add(grip);
+  gun.visible=false; group.add(gun); group.userData.gun=gun;
+
+  var axe=new THREE.Group();
+  var handle=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.5),wMat);
+  var aGeo=new THREE.BoxGeometry(0.15,0.1,0.02);
+  var aPos=aGeo.attributes.position;
+  for(var i=0;i<aPos.count;i++){if(aPos.getX(i)>0)aPos.setY(i,aPos.getY(i)*2);}
+  aGeo.computeVertexNormals();
+  var axeH=new THREE.Mesh(aGeo,new THREE.MeshStandardMaterial({color:0x888888,metalness:0.8,roughness:0.2}));
+  axeH.position.set(0.08,0.2,0);
+  axe.add(handle); axe.add(axeH);
+  axe.position.set(-0.5,0.35,0); axe.rotation.x=Math.PI/2;
+  axe.visible=false; group.add(axe); group.userData.axe=axe;
+
+  group.add(blob);
+  group.userData.blob=blob;
+  group.userData.mat=mat;
+  group.userData.isProto=true;
+  return group;
 }
 
-function loadCharacter(type) {
-    if (currentCharacter) {
-        scene.remove(currentCharacter);
-    }
-    
-    currentType = type;
-    
-    if (type === 'modular') currentCharacter = window.buildModularMan(charConfigs[type].colorTorso);
-    else if (type === 'goop') currentCharacter = window.buildGoop(charConfigs[type].colorMain);
-    else if (type === 'goop-man') currentCharacter = window.buildGoopMan(charConfigs[type].colorMain);
-    
-    // Default pose setup
-    currentCharacter.position.set(0, 0, 0);
-    scene.add(currentCharacter);
-    
-    applyConfigToMesh(currentCharacter, type);
-    buildUIControls(type);
-}
-
-// --- UI GENERATION ---
-const controlsContainer = document.getElementById('dynamic-controls');
-const exportOutput = document.getElementById('export-output');
-const exportBtn = document.getElementById('export-btn');
-
-function createControl(label, type, key, min, max, step) {
-    const group = document.createElement('div');
-    group.className = 'control-group';
-    
-    const header = document.createElement('div');
-    header.className = 'control-header';
-    
-    const title = document.createElement('span');
-    title.innerText = label;
-    
-    const valDisplay = document.createElement('span');
-    valDisplay.className = 'control-val';
-    valDisplay.innerText = charConfigs[currentType][key];
-    
-    header.appendChild(title);
-    header.appendChild(valDisplay);
-    
-    let input;
-    if (type === 'color') {
-        input = document.createElement('input');
-        input.type = 'color';
-        input.value = charConfigs[currentType][key];
-        input.addEventListener('input', (e) => {
-            charConfigs[currentType][key] = e.target.value;
-            valDisplay.innerText = e.target.value;
-            applyConfigToMesh(currentCharacter, currentType);
-        });
-    } else if (type === 'slider') {
-        input = document.createElement('input');
-        input.type = 'range';
-        input.min = min;
-        input.max = max;
-        input.step = step;
-        input.value = charConfigs[currentType][key];
-        input.addEventListener('input', (e) => {
-            const v = parseFloat(e.target.value);
-            charConfigs[currentType][key] = v;
-            valDisplay.innerText = v.toFixed(2);
-            applyConfigToMesh(currentCharacter, currentType);
-        });
-    }
-    
-    group.appendChild(header);
-    group.appendChild(input);
-    return group;
-}
-
-function buildUIControls(type) {
-    controlsContainer.innerHTML = ''; // Clear
-    
-    if (type === 'modular') {
-        controlsContainer.appendChild(createControl('Torso Color', 'color', 'colorTorso'));
-        controlsContainer.appendChild(createControl('Head Color', 'color', 'colorHead'));
-        controlsContainer.appendChild(createControl('Limbs Color', 'color', 'colorLimbs'));
-        controlsContainer.appendChild(createControl('Torso Bulk', 'slider', 'scaleTorso', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Head Size', 'slider', 'scaleHead', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Arm Thickness', 'slider', 'scaleArms', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Leg Thickness', 'slider', 'scaleLegs', 0.5, 2.0, 0.05));
-    } else if (type === 'goop') {
-        controlsContainer.appendChild(createControl('Slime Color', 'color', 'colorMain'));
-        controlsContainer.appendChild(createControl('Width (X)', 'slider', 'scaleX', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Height (Y)', 'slider', 'scaleY', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Depth (Z)', 'slider', 'scaleZ', 0.5, 2.0, 0.05));
-    } else if (type === 'goop-man') {
-        controlsContainer.appendChild(createControl('Slime Color', 'color', 'colorMain'));
-        controlsContainer.appendChild(createControl('Glass Thickness', 'slider', 'thickness', 0.0, 2.0, 0.1));
-        controlsContainer.appendChild(createControl('Roughness', 'slider', 'roughness', 0.0, 1.0, 0.05));
-        controlsContainer.appendChild(createControl('Torso Bulk', 'slider', 'scaleTorso', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Head Size', 'slider', 'scaleHead', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Arm Thickness', 'slider', 'scaleArms', 0.5, 2.0, 0.05));
-        controlsContainer.appendChild(createControl('Leg Thickness', 'slider', 'scaleLegs', 0.5, 2.0, 0.05));
-    } else if (type === 'campfire') {
-        controlsContainer.appendChild(createEnvControl('Emission Rate', 'slider', 'emissionRate', 100, 2000, 50));
-        controlsContainer.appendChild(createEnvControl('Fire Size', 'slider', 'fireSize', 0.1, 3.0, 0.1));
-        controlsContainer.appendChild(createEnvControl('Speed', 'slider', 'speed', 0.5, 3.0, 0.1));
-        controlsContainer.appendChild(createEnvControl('Spread', 'slider', 'spread', 0.01, 1.0, 0.01));
-    }
-}
-
-function createEnvControl(label, type, key, min, max, step) {
-    const group = document.createElement('div');
-    group.className = 'control-group';
-    
-    const header = document.createElement('div');
-    header.className = 'control-header';
-    
-    const title = document.createElement('span');
-    title.innerText = label;
-    
-    const valDisplay = document.createElement('span');
-    valDisplay.className = 'control-val';
-    valDisplay.innerText = envConfigs[currentEnvType][key];
-    
-    header.appendChild(title);
-    header.appendChild(valDisplay);
-    
-    let input = document.createElement('input');
-    if (type === 'slider') {
-        input.type = 'range';
-        input.min = min;
-        input.max = max;
-        input.step = step;
-        input.value = envConfigs[currentEnvType][key];
-        input.addEventListener('input', (e) => {
-            const v = parseFloat(e.target.value);
-            envConfigs[currentEnvType][key] = v;
-            valDisplay.innerText = v.toFixed(2);
-            applyConfigToEnv();
-        });
-    }
-    
-    group.appendChild(header);
-    group.appendChild(input);
-    return group;
-}
-
-function updateExportOutput() {
-    if (currentMode === 'character') {
-        exportOutput.value = JSON.stringify({
-            type: currentType,
-            config: charConfigs[currentType]
-        }, null, 2);
-    } else {
-        exportOutput.value = JSON.stringify({
-            type: currentEnvType,
-            config: envConfigs[currentEnvType]
-        }, null, 2);
-    }
-}
-
-exportBtn.addEventListener('click', () => {
-    exportOutput.select();
-    document.execCommand('copy');
-    exportBtn.innerText = 'COPIED TO CLIPBOARD!';
-    exportBtn.style.background = '#10b981'; // Emerald
-    setTimeout(() => {
-        exportBtn.innerText = 'EXPORT SETTINGS';
-        exportBtn.style.background = ''; // Revert to CSS default
-    }, 2000);
+// DRIP SYSTEM
+var dripGeo=new THREE.SphereGeometry(1,6,6);
+var dripMat=new THREE.MeshPhysicalMaterial({
+  color:C.color, transparent:true, opacity:0.7,
+  roughness:0.1, metalness:0.3, clearcoat:1
 });
 
-// Model Selector Links
-function renderSelector() {
-    const selector = document.getElementById('model-selector');
-    const title = document.getElementById('selector-title');
-    selector.innerHTML = '';
-    
-    if (currentMode === 'character') {
-        title.innerText = 'SELECT MODEL';
-        const models = [
-            { id: 'modular', name: 'MODULAR MAN' },
-            { id: 'goop', name: 'THE GOOP' },
-            { id: 'goop-man', name: 'GOOP MAN' }
-        ];
-        models.forEach(m => {
-            const btn = document.createElement('button');
-            btn.className = 'model-btn glow-btn' + (currentType === m.id ? ' active' : '');
-            btn.innerText = m.name;
-            btn.onclick = () => {
-                document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                loadCharacter(m.id);
-            };
-            selector.appendChild(btn);
-        });
-    } else {
-        title.innerText = 'SELECT ENVIRONMENT';
-        const envs = [
-            { id: 'campfire', name: 'CAMPFIRE' }
-        ];
-        envs.forEach(e => {
-            const btn = document.createElement('button');
-            btn.className = 'model-btn glow-btn' + (currentEnvType === e.id ? ' active' : '');
-            btn.innerText = e.name;
-            btn.onclick = () => {
-                document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                loadEnvironment(e.id);
-            };
-            selector.appendChild(btn);
-        });
-    }
+function spawnDrip(){
+  if(!goop||!goop.userData.blob) return;
+  var blob=goop.userData.blob;
+  // Pick random point on surface
+  var theta=Math.random()*Math.PI*2;
+  var phi=Math.acos(2*Math.random()-1);
+  var r=0.34;
+  var lx=r*Math.sin(phi)*Math.cos(theta);
+  var ly=r*Math.sin(phi)*Math.sin(theta);
+  var lz=r*Math.cos(phi);
+
+  var mesh;
+  if(dripPool.length>0){ mesh=dripPool.pop(); mesh.visible=true; }
+  else{
+    mesh=new THREE.Mesh(dripGeo,dripMat.clone());
+    mesh.castShadow=true;
+  }
+  mesh.material.color.set(C.color);
+  mesh.material.opacity=0.7;
+  var s=C.dripSize*(0.7+Math.random()*0.6);
+  mesh.scale.set(s,s,s);
+
+  // World position from blob surface
+  var wp=new THREE.Vector3(lx,ly+0.35,lz);
+  blob.localToWorld(wp);
+  mesh.position.copy(wp);
+
+  scene.add(mesh);
+  drips.push({
+    mesh:mesh, life:C.dripLife, maxLife:C.dripLife,
+    vy:-0.1-Math.random()*0.3, // initial slide speed
+    vx:(Math.random()-0.5)*0.2,
+    vz:(Math.random()-0.5)*0.2,
+    phase:0 // 0=sliding, 1=falling
+  });
 }
 
-// Mode Switching
-document.querySelectorAll('.mode-tab').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        currentMode = e.target.dataset.mode;
-        
-        if (currentMode === 'character') {
-            if (envCampfire) { scene.remove(envCampfire.group); }
-            if (currentCharacter) { scene.add(currentCharacter); }
-            renderSelector();
-            buildUIControls(currentType);
-            updateExportOutput();
-        } else {
-            if (currentCharacter) { scene.remove(currentCharacter); }
-            loadEnvironment(currentEnvType);
-            renderSelector();
-        }
-    });
+function updateDrips(dt){
+  var el=document.getElementById('status-drips');
+  if(el) el.innerText='DRIPS: '+drips.length;
+
+  for(var i=drips.length-1;i>=0;i--){
+    var d=drips[i];
+    d.life-=dt;
+    if(d.life<=0){
+      d.mesh.visible=false; scene.remove(d.mesh);
+      dripPool.push(d.mesh); drips.splice(i,1); continue;
+    }
+    // Gravity accelerates
+    d.vy-=C.dripGravity*dt;
+    d.mesh.position.x+=d.vx*dt;
+    d.mesh.position.y+=d.vy*dt;
+    d.mesh.position.z+=d.vz*dt;
+    // Fade out
+    var t=d.life/d.maxLife;
+    d.mesh.material.opacity=t*0.7;
+    // Stretch as falling
+    var stretch=1+Math.max(0,-d.vy)*0.3;
+    var s=C.dripSize*t;
+    d.mesh.scale.set(s,s*stretch,s);
+    // Floor removal
+    if(d.mesh.position.y<-0.1){
+      d.mesh.visible=false; scene.remove(d.mesh);
+      dripPool.push(d.mesh); drips.splice(i,1);
+    }
+  }
+}
+
+// WOBBLE (prototype only)
+function updateWobble(t){
+  if(!goop||!goop.userData.isProto) return;
+  var blob=goop.userData.blob;
+  var pos=blob.geometry.attributes.position;
+  var base=blob.userData.shapedPositions;
+  var amp=C.wobbleAmp, spd=C.wobbleSpeed;
+  for(var i=0;i<pos.count;i++){
+    var bx=base[i*3], by=base[i*3+1], bz=base[i*3+2];
+    var n=Math.sin(by*8+t*spd)*Math.cos(bx*6+t*spd*0.7);
+    pos.setXYZ(i, bx+n*amp, by+Math.sin(t*spd*1.3+i*0.1)*amp*0.5, bz+n*amp*0.7);
+  }
+  pos.needsUpdate=true;
+  blob.geometry.computeVertexNormals();
+}
+
+// APPLY CONFIG TO LIVE GOOP
+function applyConfig(){
+  if(!goop) return;
+  var blob=goop.userData.blob;
+  if(!blob) return;
+  blob.material.color.set(C.color);
+  blob.material.opacity=C.opacity;
+  blob.material.roughness=C.roughness;
+  blob.material.metalness=C.metalness;
+  blob.material.clearcoat=C.clearcoat;
+  if(blob.material.emissive) blob.material.emissive.set(C.emissiveColor);
+  blob.material.emissiveIntensity=C.emissiveIntensity;
+  blob.scale.set(C.scaleX,C.scaleY,C.scaleZ);
+
+  if(goop.userData.isProto){
+    blob.material.transmission=C.transmission;
+    blob.material.thickness=C.thickness;
+    blob.material.ior=C.ior;
+    if(goop.userData.innerMat){
+      goop.userData.innerMat.opacity=C.innerGlow*0.3;
+    }
+  }
+  // Scene
+  scene.background.set(C.bgColor); scene.fog.color.set(C.bgColor);
+  scene.fog.density=C.fogDensity;
+  floorMat.color.set(C.floorColor);
+  dirLight.intensity=C.keyIntensity; fillLight.color.set(C.fillColor);
+  rimLight.color.set(C.rimColor); ambLight.intensity=C.ambient;
+  grid.material.opacity=C.gridOpacity;
+}
+
+// LOAD GOOP
+function loadGoop(){
+  if(goop){ scene.remove(goop); }
+  drips.forEach(function(d){ scene.remove(d.mesh); }); drips=[];
+  if(ver==='prototype') goop=buildProtoGoop();
+  else goop=window.buildGoop(C.color);
+  if(!goop) return;
+  goop.position.set(0,0,0);
+  scene.add(goop);
+  applyConfig();
+  document.getElementById('status-ver').innerText=ver.toUpperCase();
+  // Show/hide proto-only controls
+  var fxSec=document.getElementById('fx-proto-section');
+  if(fxSec) fxSec.style.display=(ver==='prototype')?'block':'none';
+}
+
+// UI BUILDER
+function makeControl(parent,label,key,type,min,max,step){
+  var g=document.createElement('div'); g.className='control-group';
+  var val=(type==='color')?C[key]:parseFloat(C[key]).toFixed(2);
+  g.innerHTML='<div class="control-header"><span>'+label+'</span><span class="control-val">'+val+'</span></div>';
+  var inp=document.createElement('input');
+  inp.type=(type==='color')?'color':'range';
+  inp.value=C[key];
+  if(type!=='color'){inp.min=min;inp.max=max;inp.step=step;}
+  inp.addEventListener('input',function(e){
+    var v=(type==='color')?e.target.value:parseFloat(e.target.value);
+    C[key]=v;
+    g.querySelector('.control-val').innerText=(type==='color')?v:v.toFixed(2);
+    applyConfig();
+  });
+  g.appendChild(inp); parent.appendChild(g);
+}
+
+function buildControls(){
+  var s=document.getElementById('shape-controls'); s.innerHTML='';
+  makeControl(s,'Color','color','color');
+  makeControl(s,'Width','scaleX','range',0.5,2,0.05);
+  makeControl(s,'Height','scaleY','range',0.5,2,0.05);
+  makeControl(s,'Depth','scaleZ','range',0.5,2,0.05);
+
+  var m=document.getElementById('material-controls'); m.innerHTML='';
+  makeControl(m,'Opacity','opacity','range',0.1,1,0.05);
+  makeControl(m,'Roughness','roughness','range',0,1,0.05);
+  makeControl(m,'Metalness','metalness','range',0,1,0.05);
+  makeControl(m,'Clearcoat','clearcoat','range',0,1,0.05);
+  makeControl(m,'Emissive Color','emissiveColor','color');
+  makeControl(m,'Emissive Power','emissiveIntensity','range',0,2,0.05);
+  if(ver==='prototype'){
+    makeControl(m,'Transmission','transmission','range',0,1,0.05);
+    makeControl(m,'Thickness','thickness','range',0,3,0.1);
+    makeControl(m,'IOR','ior','range',1,2.5,0.05);
+    makeControl(m,'Inner Glow','innerGlow','range',0,1,0.05);
+  }
+
+  var f=document.getElementById('fx-controls'); f.innerHTML='';
+  makeControl(f,'Drip Rate','dripRate','range',0,15,0.5);
+  makeControl(f,'Drip Size','dripSize','range',0.01,0.1,0.005);
+  makeControl(f,'Drip Life','dripLife','range',0.5,5,0.25);
+  makeControl(f,'Gravity','dripGravity','range',0.5,8,0.25);
+  makeControl(f,'Wobble Amp','wobbleAmp','range',0,0.05,0.002);
+  makeControl(f,'Wobble Speed','wobbleSpeed','range',0.5,8,0.25);
+
+  var g=document.getElementById('glow-controls'); g.innerHTML='';
+  // (glow uses emissive from material tab)
+
+  var sc=document.getElementById('scene-controls'); sc.innerHTML='';
+  makeControl(sc,'Background','bgColor','color');
+  makeControl(sc,'Floor','floorColor','color');
+  makeControl(sc,'Fog Density','fogDensity','range',0,0.2,0.005);
+  makeControl(sc,'Grid Opacity','gridOpacity','range',0,1,0.05);
+
+  var lc=document.getElementById('light-controls'); lc.innerHTML='';
+  makeControl(lc,'Key Light','keyIntensity','range',0,3,0.1);
+  makeControl(lc,'Fill Color','fillColor','color');
+  makeControl(lc,'Rim Color','rimColor','color');
+  makeControl(lc,'Ambient','ambient','range',0,2,0.1);
+}
+
+// TABS
+document.querySelectorAll('.p-tab').forEach(function(tab){
+  tab.addEventListener('click',function(){
+    document.querySelectorAll('.p-tab').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.panel-body').forEach(function(p){p.classList.add('hidden');});
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.panel).classList.remove('hidden');
+  });
 });
 
-let currentMode = 'character';
-let currentEnvType = 'campfire';
-let envCampfire = null;
-
-// Environment Configs
-const envConfigs = {
-    'campfire': {
-        emissionRate: 500,
-        fireSize: 0.8,
-        speed: 1.5,
-        spread: 0.15
-    }
-};
-
-function applyConfigToEnv() {
-    if (currentEnvType === 'campfire' && envCampfire) {
-        const conf = envConfigs['campfire'];
-        envCampfire.config.emissionRate = conf.emissionRate;
-        envCampfire.config.size = conf.fireSize * 15; // default size is 12, fireSize scales it.
-        envCampfire.config.speed = conf.speed;
-        envCampfire.config.spread = conf.spread;
-        
-        exportOutput.value = JSON.stringify({
-            type: 'campfire',
-            config: conf
-        }, null, 2);
-    }
-}
-
-function loadEnvironment(type) {
-    currentEnvType = type;
-    if (type === 'campfire') {
-        if (!envCampfire && window.Campfire) {
-            envCampfire = new window.Campfire();
-        }
-        if (envCampfire) {
-            envCampfire.group.position.set(0, 0, 0);
-            scene.add(envCampfire.group);
-            applyConfigToEnv();
-        }
-    }
-    buildUIControls(type);
-}
-
-// --- RENDER LOOP ---
-const clock = new THREE.Clock();
-
-function animate() {
-    requestAnimationFrame(animate);
-    const delta = clock.getDelta();
-    animTime += delta;
-    
-    controls.update();
-
-    if (currentMode === 'character' && currentCharacter) {
-        // We use the shared animateCharacter function to keep the idle animation alive
-        if (window.animateCharacter) {
-            // function signature: mesh, charType, isMoving, isSprinting, isCrouching, jumpTime, t, delta, speedStr, inventory, shootTime, camPitch
-            window.animateCharacter(currentCharacter, currentType, false, false, false, -1, animTime, delta, 0, 0, 0, 0);
-        }
-    } else if (currentMode === 'environment' && envCampfire) {
-        envCampfire.update(delta);
-    }
-
-    renderer.render(scene, camera);
-}
-
-// Init
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+// VERSION TABS
+document.querySelectorAll('.ver-tab').forEach(function(tab){
+  tab.addEventListener('click',function(){
+    document.querySelectorAll('.ver-tab').forEach(function(t){t.classList.remove('active');});
+    tab.classList.add('active');
+    ver=tab.dataset.ver;
+    buildControls();
+    loadGoop();
+  });
 });
 
-// Wait for shared-characters to load
-function initStudio() {
-    if (window.buildModularMan) {
-        loadCharacter('modular');
-        animate();
-    } else {
-        setTimeout(initStudio, 100);
-    }
+// ANIM BUTTONS
+document.querySelectorAll('.anim-btn').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.anim-btn').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active'); animState=b.dataset.anim;
+    document.getElementById('status-anim').innerText=animState;
+  });
+});
+document.querySelectorAll('.weapon-btn').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.weapon-btn').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active'); inventory=parseInt(b.dataset.weapon);
+  });
+});
+
+// TURNTABLE
+document.getElementById('btn-turntable').addEventListener('click',function(){
+  turntable=!turntable; this.dataset.active=turntable;
+});
+document.getElementById('btn-reset-camera').addEventListener('click',function(){
+  camera.position.set(0,1,3.5); orbit.target.set(0,0.5,0);
+});
+
+// CONTROL MODE
+var controlBtn=document.getElementById('btn-control');
+var controlHud=document.getElementById('control-hud');
+
+controlBtn.addEventListener('click',function(){
+  if(!controlMode) renderer.domElement.requestPointerLock();
+});
+
+document.addEventListener('pointerlockchange',function(){
+  controlMode=(document.pointerLockElement===renderer.domElement);
+  controlHud.classList.toggle('hidden',!controlMode);
+  controlBtn.classList.toggle('active-control',controlMode);
+  controlBtn.innerHTML=controlMode?'EXIT CONTROL':'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2v20"/></svg> TAKE CONTROL';
+  orbit.enabled=!controlMode;
+  if(!controlMode){camYaw=0;camPitch=0;jumpTime=-1;}
+});
+
+document.addEventListener('mousemove',function(e){
+  if(!controlMode) return;
+  camYaw-=(e.movementX||0)*0.003;
+  camPitch+=(e.movementY||0)*0.003;
+  camPitch=Math.max(-1,Math.min(1.2,camPitch));
+});
+document.addEventListener('keydown',function(e){keys[e.code]=true;});
+document.addEventListener('keyup',function(e){keys[e.code]=false;});
+
+function updateControl(dt){
+  if(!controlMode||!goop) return;
+  var speed=keys.ShiftLeft?8:4;
+  var mx=(keys.KeyA?1:0)-(keys.KeyD?1:0);
+  var mz=(keys.KeyW?1:0)-(keys.KeyS?1:0);
+  var moving=Math.abs(mx)>0||Math.abs(mz)>0;
+
+  if(moving){
+    var dir=new THREE.Vector3(mx,0,mz).normalize();
+    dir.applyAxisAngle(new THREE.Vector3(0,1,0),camYaw);
+    var targetY=Math.atan2(dir.x,dir.z);
+    var diff=targetY-goop.rotation.y;
+    while(diff<-Math.PI)diff+=Math.PI*2;
+    while(diff>Math.PI)diff-=Math.PI*2;
+    goop.rotation.y+=diff*10*dt;
+    goop.position.addScaledVector(dir,speed*dt);
+  }
+
+  if(keys.Space&&jumpTime<0) jumpTime=0;
+  if(jumpTime>=0){
+    jumpTime+=dt*1.5;
+    goop.position.y=Math.sin(Math.min(jumpTime,1)*Math.PI)*1.2;
+    if(jumpTime>1){jumpTime=-1;goop.position.y=0;}
+  }
+
+  // Camera follow
+  var camOff=new THREE.Vector3(0,1.3,3);
+  camOff.applyAxisAngle(new THREE.Vector3(0,1,0),camYaw);
+  camera.position.copy(goop.position).add(camOff);
+  camera.lookAt(goop.position.x,goop.position.y+0.5,goop.position.z);
+
+  // Override animState
+  if(moving) animState=keys.ShiftLeft?'run':'walk';
+  else if(animState==='walk'||animState==='run') animState='idle';
 }
-initStudio();
+
+// EXPORT
+document.getElementById('export-btn').addEventListener('click',function(){
+  var out=document.getElementById('export-output');
+  out.value=JSON.stringify({version:ver,config:C},null,2);
+  out.select(); document.execCommand('copy');
+  this.innerText='COPIED!';
+  var self=this;
+  setTimeout(function(){self.innerText='EXPORT CONFIG';},1500);
+});
+
+// RENDER
+var clock=new THREE.Clock();
+var dripAccum=0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  var dt=clock.getDelta();
+  animTime+=dt;
+
+  // FPS
+  fpsN++;
+  var now=performance.now();
+  if(now-fpsT>=500){
+    document.getElementById('status-fps').innerText=Math.round(fpsN/((now-fpsT)/1000))+' FPS';
+    fpsN=0; fpsT=now;
+  }
+
+  updateControl(dt);
+  if(!controlMode) orbit.update();
+  if(turntable&&goop) goop.rotation.y+=dt*0.5;
+
+  // Animate goop
+  if(goop&&window.animateCharacter){
+    var moving=(animState==='walk'||animState==='run');
+    var sprinting=(animState==='run');
+    try{
+      window.animateCharacter(goop,'goop',moving,sprinting,false,jumpTime,animTime,dt,0,inventory,0,0);
+    }catch(e){}
+  }
+
+  // Prototype extras
+  if(ver==='prototype'&&goop){
+    updateWobble(animTime);
+    // Inner core pulse
+    if(goop.userData.innerCore){
+      goop.userData.innerCore.scale.setScalar(1+Math.sin(animTime*2)*0.1);
+    }
+    // Drips
+    var moving2=(animState==='walk'||animState==='run');
+    var rate=C.dripRate*(moving2?3:1);
+    if(rate>0){
+      dripAccum+=dt;
+      var interval=1/rate;
+      while(dripAccum>=interval){
+        spawnDrip();
+        dripAccum-=interval;
+      }
+    }
+  }
+  updateDrips(dt);
+
+  renderer.render(scene,camera);
+}
+
+// INIT
+function init(){
+  if(!window.buildGoop){setTimeout(init,100);return;}
+  onResize();
+  buildControls();
+  loadGoop();
+  animate();
+}
+init();
+
+})();

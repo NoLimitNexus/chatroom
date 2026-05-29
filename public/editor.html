@@ -119,6 +119,8 @@
         .btn-danger:hover { background: rgba(239,68,68,0.3); }
         .btn-success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); }
         .btn-success:hover { background: rgba(16,185,129,0.3); }
+        .btn-primary { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.4); }
+        .btn-primary:hover { background: rgba(59,130,246,0.3); }
 
         /* Follow banner */
         #follow-banner {
@@ -222,6 +224,9 @@
             <button class="btn" id="btn-duplicate">📋 Duplicate</button>
             <button class="btn btn-success" id="btn-save">💾 Save</button>
         </div>
+        <div class="action-row">
+            <button class="btn btn-primary" id="btn-sync" style="width:100%">🔄 Pull from Prod</button>
+        </div>
 
         <!-- Object List -->
         <div class="section-title">Scene Objects <span class="badge badge-blue" id="obj-count">0</span></div>
@@ -257,8 +262,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
 
-    <script src="campfire.js"></script>
-    <script src="ObjectFactory.js"></script>
-    <script src="editor.js"></script>
+    <script src="ripples.js?v=22"></script>
+    <script src="campfire.js?v=22"></script>
+    <script src="ObjectFactory.js?v=22"></script>
+    <script src="editor.js?v=22"></script>
 </body>
 </html>

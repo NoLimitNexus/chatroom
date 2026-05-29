@@ -23,6 +23,9 @@
     var myCharacter = null;
     var camRig = new THREE.Group();
     var keys = {};
+    var isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    var joystickMoveX = 0;
+    var joystickMoveZ = 0;
 
     // --- FISHING & INVENTORY ---
     var GAME_ITEMS = {
@@ -127,25 +130,24 @@
         }
     });
 
+    // Cached Geometries to prevent lag on item spawn
+    const sharedDroppedGeo = new THREE.SphereGeometry(0.2, 10, 10);
+    const sharedDroppedHaloGeo = new THREE.SphereGeometry(0.35, 10, 10);
+
     function spawnDroppedItem(data) {
         const item = data.itemData;
         const pickupGroup = new THREE.Group();
         // Glowing sphere
-        const geo = new THREE.SphereGeometry(0.2, 10, 10);
         const mat = new THREE.MeshStandardMaterial({
             color: item.color, emissive: item.color, emissiveIntensity: 1.5,
             transparent: true, opacity: 0.85, roughness: 0.2
         });
-        const sphere = new THREE.Mesh(geo, mat);
+        const sphere = new THREE.Mesh(sharedDroppedGeo, mat);
         pickupGroup.add(sphere);
         // Halo
-        const haloGeo = new THREE.SphereGeometry(0.35, 10, 10);
         const haloMat = new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: 0.15 });
-        pickupGroup.add(new THREE.Mesh(haloGeo, haloMat));
-        // Light
-        const light = new THREE.PointLight(item.color, 2, 5);
-        pickupGroup.add(light);
-
+        pickupGroup.add(new THREE.Mesh(sharedDroppedHaloGeo, haloMat));
+        
         pickupGroup.position.set(data.position.x, data.position.y, data.position.z);
         pickupGroup.userData.droppedItem = item;
         pickupGroup.userData.itemId = data.itemId;
@@ -171,12 +173,32 @@
         socket.emit('itemDropped', { itemData: item, position: { x: dropPos.x, y: dropPos.y, z: dropPos.z } });
     }
 
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropAllBtn = document.getElementById('drop-all-btn');
+        if (dropAllBtn) {
+            dropAllBtn.addEventListener('click', function() {
+                for (let i = 0; i < 20; i++) {
+                    if (playerItems[i]) dropItemOnGround(i);
+                }
+            });
+        }
+    });
+
     let nearestInteractable = null;
 
-    // Check dropped items near player to prompt pickup
+    // ---- BOAT STATE ----
+    var boatState = {
+        active: false,
+        boatGroup: null,     // The THREE.Group of the boat we're riding
+        boatSpeed: 6.0,
+        boatSprintSpeed: 10.0
+    };
+    var boatObjects = [];    // All spawned boat groups (for interaction raycasting)
+
+    // Check nearest interactables (items, fishing spots, campfires, boats) near player
     function checkPickupDroppedItems() {
         nearestInteractable = null;
-        if (!myCharacter || !isLocked) {
+        if (!myCharacter || !isPlaying) {
             updateInteractionPrompt();
             return;
         }
@@ -194,10 +216,11 @@
             }
         }
         
-        // Check fishing spots
+        // Check fishing spots (extended range when on a boat)
+        var fishingRange = boatState.active ? 6.0 : 4.0;
         fishingSpots.forEach(s => {
             const dist = myCharacter.position.distanceTo(s.position);
-            if (dist < 8.0 && dist < closestDist) {
+            if (dist < fishingRange && dist < closestDist) {
                 closestDist = dist;
                 closestItem = s;
             }
@@ -214,7 +237,64 @@
             }
         });
 
-        nearestInteractable = closestItem;
+        // Check boats
+        boatObjects.forEach(boat => {
+            // Ignore the boat we are currently riding
+            if (boatState.active && boatState.boatGroup === boat) return;
+            
+            const dist = myCharacter.position.distanceTo(boat.position);
+            if (dist < 5.0 && dist < closestDist) {
+                closestDist = dist;
+                closestItem = boat;
+            }
+        });
+
+        // --- RAYCAST TARGETING FOR BOATS & FISHING SPOTS (with range pre-filtering) ---
+        let targetedSpot = null;
+        let interactables = [];
+        
+        // Only consider nearby objects for raycasting to optimize performance
+        fishingSpots.forEach(s => {
+            if (myCharacter.position.distanceTo(s.position) < 12.0) {
+                interactables.push(s);
+            }
+        });
+        boatObjects.forEach(boat => {
+            if (boatState.active && boatState.boatGroup === boat) return;
+            if (myCharacter.position.distanceTo(boat.position) < 12.0) {
+                interactables.push(boat);
+            }
+        });
+
+        if (interactables.length > 0) {
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const hits = raycaster.intersectObjects(interactables, true);
+            if (hits.length > 0) {
+                let curr = hits[0].object;
+                while (curr && !curr.userData.isEnvironmentObject) {
+                    curr = curr.parent;
+                }
+                targetedSpot = curr;
+            }
+        }
+
+        // Update fishing spot rings based on raycast targeting
+        fishingSpots.forEach(group => {
+            if (group.userData.ring) {
+                const isTargeted = (group === targetedSpot) && myCharacter.position.distanceTo(group.position) < 8.0;
+                group.userData.ring.visible = isTargeted;
+            }
+        });
+
+        // Set nearestInteractable: prioritize targeted boat/fishing spot if in range
+        if (targetedSpot && targetedSpot.userData && targetedSpot.userData.action === 'boat' && myCharacter.position.distanceTo(targetedSpot.position) < 5.0) {
+            nearestInteractable = targetedSpot;
+        } else if (targetedSpot && targetedSpot.userData && targetedSpot.userData.action === 'fishing' && myCharacter.position.distanceTo(targetedSpot.position) < fishingRange) {
+            nearestInteractable = targetedSpot;
+        } else {
+            nearestInteractable = closestItem;
+        }
+
         updateInteractionPrompt();
     }
 
@@ -222,7 +302,16 @@
         const promptEl = document.getElementById('interaction-prompt');
         if (!promptEl) return;
         
-        if (nearestInteractable && !inventoryOpen) {
+        if (boatState.active && !inventoryOpen) {
+            promptEl.style.display = 'block';
+            if (nearestInteractable && nearestInteractable.userData && nearestInteractable.userData.action === 'fishing') {
+                document.getElementById('interaction-action').innerText = 'fish from';
+                document.getElementById('interaction-item-name').innerText = 'Boat';
+            } else {
+                document.getElementById('interaction-action').innerText = 'disembark';
+                document.getElementById('interaction-item-name').innerText = 'Boat';
+            }
+        } else if (nearestInteractable && !inventoryOpen) {
             promptEl.style.display = 'block';
             if (nearestInteractable.userData && nearestInteractable.userData.droppedItem) {
                 document.getElementById('interaction-action').innerText = 'pick up';
@@ -230,6 +319,9 @@
             } else if (nearestInteractable.userData && nearestInteractable.userData.action === 'fishing') {
                 document.getElementById('interaction-action').innerText = 'start';
                 document.getElementById('interaction-item-name').innerText = 'Fishing';
+            } else if (nearestInteractable.userData && nearestInteractable.userData.action === 'boat') {
+                document.getElementById('interaction-action').innerText = 'board';
+                document.getElementById('interaction-item-name').innerText = 'Boat';
             } else if (nearestInteractable.userData && nearestInteractable.userData.type === 'Campfire') {
                 document.getElementById('interaction-action').innerText = 'use';
                 document.getElementById('interaction-item-name').innerText = 'Campfire (Cook)';
@@ -258,7 +350,32 @@
             } else {
                 addChatMessage('System', 'Inventory full!', 0xff0000);
             }
+        } else if (pickup.userData && pickup.userData.action === 'boat') {
+            // Board the boat
+            if (!boatState.active) {
+                boatState.active = true;
+                // Find the parent group wrapper (the boat itself)
+                let curr = pickup;
+                while (curr && !curr.userData.isEnvironmentObject) {
+                    curr = curr.parent;
+                }
+                boatState.boatGroup = curr || pickup;
+                // Snap player onto boat
+                myCharacter.position.set(
+                    boatState.boatGroup.position.x,
+                    boatState.boatGroup.position.y + 0.5,
+                    boatState.boatGroup.position.z
+                );
+                addChatMessage('System', 'Boarded the boat! WASD to sail, press E near land to disembark.', 0x4fc3f7);
+                nearestInteractable = null;
+                updateInteractionPrompt();
+            }
         } else if (pickup.userData && pickup.userData.action === 'fishing') {
+            // Check inventory space before starting
+            if (playerItems.indexOf(null) === -1) {
+                addChatMessage('System', 'Inventory full! Drop items to fish.', 0xff4444);
+                return;
+            }
             stopGathering();
             autoFishing.active = true;
             autoFishing.spotGroup = pickup;
@@ -353,7 +470,7 @@
         document.querySelectorAll('.wheel-item').forEach(el => el.classList.remove('highlighted'));
         
         if (oldInv !== state.inventory && myCharacter) {
-            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: false, isSprinting: false, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: 0, localVz: 0, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
+            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: false, isSprinting: false, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: 0, localVz: 0, inventory: state.inventory, camPitch: state.camPitch, camYaw: state.camYaw, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
         }
     }
 
@@ -601,39 +718,78 @@
     // Store loaded environment objects
     var environmentObjects = [];
     var environmentUpdatables = [];
+    var splashParticles = [];
+    var splashGeometry, splashMaterial;
+    function spawnSplashParticle(x, y, z) {
+        if (!splashGeometry) splashGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+        if (!splashMaterial) splashMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+        const mesh = new THREE.Mesh(splashGeometry, splashMaterial);
+        mesh.position.set(x + (Math.random() - 0.5) * 1.5, y, z + (Math.random() - 0.5) * 1.5);
+        scene.add(mesh);
+        splashParticles.push({
+            mesh: mesh,
+            life: 1.0,
+            vy: 0.5 + Math.random() * 1.5,
+            vx: (Math.random() - 0.5) * 1.0,
+            vz: (Math.random() - 0.5) * 1.0
+        });
+    }
 
     function spawnEnvironmentObject(data) {
         if (window.ObjectFactory) {
             const factoryObj = window.ObjectFactory.create(data.type, data.config);
             if (factoryObj) {
-                // Store ID for tracking
-                factoryObj.group.userData.id = data.id;
-                factoryObj.group.userData.type = data.type;
+                // Create a parent wrapper group to match editor.js hierarchy exactly
+                const wrapper = new THREE.Group();
+                wrapper.userData.id = data.id;
+                wrapper.userData.type = data.type;
+                wrapper.userData.isEnvironmentObject = true;
+                wrapper.add(factoryObj.group);
 
-                // Apply transformations
-                factoryObj.group.position.set(data.position.x, data.position.y, data.position.z);
-                factoryObj.group.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
-                factoryObj.group.scale.set(data.scale.x, data.scale.y, data.scale.z);
+                // Apply transformations to the wrapper group
+                if (data.type === 'Boat') {
+                    data.position.y = -1.2;
+                }
+
+                // Fallbacks for safe initialization
+                const rx = (data.rotation && typeof data.rotation.x === 'number') ? data.rotation.x : 0;
+                const ry = (data.rotation && typeof data.rotation.y === 'number') ? data.rotation.y : 0;
+                const rz = (data.rotation && typeof data.rotation.z === 'number') ? data.rotation.z : 0;
+
+                const sx = (data.scale && typeof data.scale.x === 'number') ? data.scale.x : 1;
+                const sy = (data.scale && typeof data.scale.y === 'number') ? data.scale.y : 1;
+                const sz = (data.scale && typeof data.scale.z === 'number') ? data.scale.z : 1;
+
+                wrapper.position.set(data.position.x, data.position.y, data.position.z);
+                wrapper.rotation.set(rx, ry, rz);
+                wrapper.scale.set(sx, sy, sz);
                 
-                scene.add(factoryObj.group);
-                environmentObjects.push(factoryObj.group);
+                scene.add(wrapper);
+                environmentObjects.push(wrapper);
                 if (factoryObj.updatable) {
                     environmentUpdatables.push(factoryObj.updatable);
                 }
 
                 // Register FishingSpot objects for interaction
                 if (data.type === 'FishingSpot') {
-                    factoryObj.group.userData.interactable = true;
-                    factoryObj.group.userData.action = 'fishing';
+                    wrapper.userData.interactable = true;
+                    wrapper.userData.action = 'fishing';
                     // Build bubbles array for the legacy animation loop
                     const bubbles = [];
-                    factoryObj.group.traverse(child => {
+                    wrapper.traverse(child => {
                         if (child.isMesh && child.geometry && child.geometry.type === 'SphereGeometry') {
                             bubbles.push(child);
                         }
                     });
-                    factoryObj.group.userData.bubbles = bubbles;
-                    fishingSpots.push(factoryObj.group);
+                    wrapper.userData.bubbles = bubbles;
+                    fishingSpots.push(wrapper);
+                }
+
+                // Register Boat objects for interaction
+                if (data.type === 'Boat') {
+                    wrapper.userData.interactable = true;
+                    wrapper.userData.action = 'boat';
+                    boatObjects.push(wrapper);
                 }
             }
         }
@@ -653,6 +809,7 @@
         environmentObjects = [];
         environmentUpdatables = [];
         fishingSpots = [];
+        boatObjects = [];
     }
 
     function loadMapData() {
@@ -727,8 +884,6 @@
     document.addEventListener('pointerlockchange', function () {
         isLocked = (document.pointerLockElement === renderer.domElement);
         crosshair.style.display = isLocked ? 'block' : 'none';
-        // Don't auto-focus chat when inventory opened via Tab
-        if (!isLocked && isPlaying && !inventoryOpen) chatInput.focus();
         
         if (mPanel) {
             mPanel.style.display = (!isLocked && isPlaying && selectedChar === 'goop-man') ? 'block' : 'none';
@@ -738,7 +893,7 @@
         }
     });
     document.addEventListener('mousemove', function (e) {
-        if (!isLocked || !myCharacter) return;
+        if ((!isLocked && !isDraggingView) || !myCharacter) return;
         if (wheelState.open) {
             wheelState.mouseX += e.movementX;
             wheelState.mouseY += e.movementY;
@@ -799,11 +954,11 @@
         noise.stop(audioCtx.currentTime + 0.2);
     }
 
-    function shootGun(shooterObj, isLocal) {
+    function shootGun(shooterObj, isLocal, aimTarget) {
         if (!shooterObj) return;
         const bp = shooterObj.userData.bp;
-        const inv = shooterObj.userData.inventory !== undefined ? shooterObj.userData.inventory : state.inventory;
-        if (inv !== 1) return; // Only spawn bullets/flash if using a gun
+        // For local: check our own state. For remote: caller already validated inv===1
+        if (isLocal && state.inventory !== 1) return;
         if (isLocal) state.shootTime = 0.15;
         if (!isLocal && shooterObj.userData) shooterObj.userData.shootTime = 0.15;
 
@@ -859,8 +1014,18 @@
         let aimTgt = new THREE.Vector3();
         if (isLocal) {
             camRig.localToWorld(aimTgt.set(0, 0, 100));
+        } else if (aimTarget && aimTarget.dirX !== undefined) {
+            // Use exact aim direction from shooter's camera
+            const dir = new THREE.Vector3(aimTarget.dirX, aimTarget.dirY, aimTarget.dirZ);
+            aimTgt = startPos.clone().add(dir.multiplyScalar(100));
         } else {
-            aimTgt = startPos.clone().add(new THREE.Vector3(0, 0, 100).applyAxisAngle(new THREE.Vector3(0,1,0), shooterObj.rotation.y));
+            // Fallback to camYaw/camPitch if no aim direction
+            const pitch = (aimTarget && aimTarget.camPitch) || 0;
+            const yaw = (aimTarget && aimTarget.camYaw) || shooterObj.rotation.y;
+            const dir = new THREE.Vector3(0, 0, 1);
+            dir.applyAxisAngle(new THREE.Vector3(1, 0, 0), -pitch);
+            dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            aimTgt = startPos.clone().add(dir.multiplyScalar(100));
         }
 
         tracer.position.copy(startPos);
@@ -883,27 +1048,30 @@
         if (isPlaying && document.activeElement !== chatInput && !isLocked && !inventoryOpen) renderer.domElement.requestPointerLock();
     });
 
+    // Cached geometries for VFX orbs
+    const sharedOrbGeo = new THREE.SphereGeometry(0.15, 12, 12);
+    const sharedOrbGlowGeo = new THREE.SphereGeometry(0.3, 12, 12);
+    const sharedTrailGeo = new THREE.SphereGeometry(0.06, 4, 4);
+
     // --- Spawn a glowing collection orb with light trail ---
     function spawnCollectionOrb(fromPos, item) {
-        const orbGeo = new THREE.SphereGeometry(0.15, 12, 12);
         const orbMat = new THREE.MeshStandardMaterial({
             color: item.color, emissive: item.color, emissiveIntensity: 2.0,
             transparent: true, opacity: 0.9, roughness: 0.1, metalness: 0.3
         });
-        const orb = new THREE.Mesh(orbGeo, orbMat);
+        const trailMat = new THREE.MeshBasicMaterial({
+            color: item.color, transparent: true, opacity: 0.6
+        });
+        const orb = new THREE.Mesh(sharedOrbGeo, orbMat);
         orb.position.copy(fromPos);
         // Outer glow halo
-        const glowGeo = new THREE.SphereGeometry(0.3, 12, 12);
         const glowMat = new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: 0.25 });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
+        const glow = new THREE.Mesh(sharedOrbGlowGeo, glowMat);
         orb.add(glow);
-        // Point light on the orb
-        const orbLight = new THREE.PointLight(item.color, 3, 6);
-        orb.add(orbLight);
         scene.add(orb);
         // Trail particles array
         const trail = [];
-        vfxOrbs.push({ mesh: orb, glow, light: orbLight, target: myCharacter, life: 1.5, trail, trailTimer: 0 });
+        vfxOrbs.push({ mesh: orb, glow, light: null, target: myCharacter, life: 1.5, trail, trailTimer: 0, trailMat });
     }
 
     // --- Collect a fish from a spot ---
@@ -950,11 +1118,20 @@
             changed = true;
         }
         if (changed) {
-            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: false, isSprinting: false, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: 0, localVz: 0, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
+            socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: false, isSprinting: false, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: 0, localVz: 0, inventory: state.inventory, camPitch: state.camPitch, camYaw: state.camYaw, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
         }
     }
 
+    let isDraggingView = false;
+    document.addEventListener('mouseup', function (e) {
+        isDraggingView = false;
+    });
+
     document.addEventListener('mousedown', function (e) {
+        if (inventoryOpen && e.target.tagName === 'CANVAS') {
+            isDraggingView = true;
+            return;
+        }
         if (!isLocked || !myCharacter) return;
         if (e.button === 0) { // Left click
             if (state.inventory === 0) {
@@ -964,7 +1141,9 @@
                 if (state.shootTime <= 0) {
                     if (state.inventory === 1) shootGun(myCharacter, true);
                     else state.shootTime = 0.15; // Swing axe
-                    socket.emit('playerShoot', { id: myId });
+                    // Send aim DIRECTION (unit vector) so remote tracers fly the same way
+                    var aimDir = new THREE.Vector3(0, 0, 1).applyQuaternion(camRig.quaternion);
+                    socket.emit('playerShoot', { id: myId, aimDirX: aimDir.x, aimDirY: aimDir.y, aimDirZ: aimDir.z });
                 }
             }
         }
@@ -972,12 +1151,55 @@
 
     // Keys
     document.addEventListener('keydown', function (e) {
+        if (e.code === 'Enter' && isPlaying && !inventoryOpen) {
+            if (document.activeElement !== chatInput) {
+                e.preventDefault();
+                document.exitPointerLock();
+                chatInput.focus();
+                return;
+            }
+        }
         if (document.activeElement === chatInput || !isPlaying) return;
         keys[e.code] = true;
         if (e.code === 'Space' && state.jumpTime < 0) state.jumpTime = 0;
         if (e.code === 'KeyC') state.isCrouching = !state.isCrouching;
         if (e.code === 'KeyE') {
-            if (nearestInteractable && !inventoryOpen) interactWithNearest();
+            // If on a boat, E = disembark (or fish if near a fishing spot)
+            if (boatState.active && boatState.boatGroup) {
+                // Check if near a fishing spot first — prioritize fishing
+                if (nearestInteractable && nearestInteractable.userData && nearestInteractable.userData.action === 'fishing') {
+                    interactWithNearest();
+                } else {
+                    // Disembark — find nearest walkable ground
+                    var boat = boatState.boatGroup;
+                    var bestDist = Infinity, bestX = boat.position.x, bestZ = boat.position.z;
+                    var foundLand = false;
+                    // Search in a ring around the boat for the nearest shore
+                    for (var a = 0; a < Math.PI * 2; a += 0.3) {
+                        for (var r = 1; r < 8; r += 0.5) {
+                            var tx = boat.position.x + Math.cos(a) * r;
+                            var tz = boat.position.z + Math.sin(a) * r;
+                            var th = getTerrainHeight(tx, tz);
+                            if (th >= -1.25) { // land or shallow shore
+                                var d = r;
+                                if (d < bestDist) { bestDist = d; bestX = tx; bestZ = tz; foundLand = true; }
+                                break;
+                            }
+                        }
+                    }
+                    if (foundLand) {
+                        boatState.active = false;
+                        stopGathering(); // stop fishing if active
+                        myCharacter.position.set(bestX, getTerrainHeight(bestX, bestZ), bestZ);
+                        boatState.boatGroup = null;
+                        addChatMessage('System', 'Disembarked from the boat.', 0x4fc3f7);
+                    } else {
+                        addChatMessage('System', 'Too far from shore to disembark.', 0xffaa00);
+                    }
+                }
+            } else {
+                if (nearestInteractable && !inventoryOpen) interactWithNearest();
+            }
         }
         if (e.code === 'KeyX' && !e.repeat) state.camSide *= -1;
         if (e.code === 'KeyQ' && !e.repeat) openWeaponWheel();
@@ -991,13 +1213,15 @@
                 invUI.style.pointerEvents = inventoryOpen ? 'auto' : 'none';
             }
             updateInteractionPrompt();
-            if (inventoryOpen) {
-                // Release pointer lock so user can use mouse on inventory
-                document.exitPointerLock();
-            } else {
-                // Re-lock pointer for gameplay
+            if (!inventoryOpen) {
                 renderer.domElement.requestPointerLock();
             }
+        }
+        
+        // Drop all hotkey
+        if ((e.code === 'Delete' || e.code === 'Backspace') && !e.repeat) {
+            const dropAllBtn = document.getElementById('drop-all-btn');
+            if (dropAllBtn) dropAllBtn.click();
         }
     });
     document.addEventListener('keyup', function (e) {
@@ -1011,10 +1235,15 @@
     });
 
     // Chat
-    chatInput.addEventListener('keypress', function (e) {
+    chatInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
+            e.preventDefault(); // prevent newline if it were a textarea
             var msg = chatInput.value.trim();
             if (msg) { socket.emit('chatMessage', msg); chatInput.value = ''; }
+            chatInput.blur();
+            if (isPlaying && !inventoryOpen && !isMobile) {
+                renderer.domElement.requestPointerLock();
+            }
         }
     });
     function addChatMessage(username, message, color) {
@@ -1034,6 +1263,23 @@
         if (invUI) invUI.style.display = 'block';
         var me = data.players[myId];
         
+        // Ensure player doesn't spawn in water (water level is -0.8)
+        if (getTerrainHeight(me.x, me.z) < -0.6) {
+            for (let i = 0; i < 50; i++) {
+                let testX = Math.random() * 40 - 20;
+                let testZ = Math.random() * 40 - 20;
+                let th = getTerrainHeight(testX, testZ);
+                if (th >= -0.5) {
+                    me.x = testX;
+                    me.y = th;
+                    me.z = testZ;
+                    // Instantly sync safe spawn location to server
+                    socket.emit('playerMovement', { x: me.x, y: me.y, z: me.z, ry: 0, isMoving: false, isSprinting: false, isCrouching: false, jumpTime: -1, localVx: 0, localVz: 0, inventory: 0, camPitch: 0, camYaw: 0, useFBX: false, isFishing: false, isCooking: false });
+                    break;
+                }
+            }
+        }
+        
         myCharacter = (selectedChar === 'goop') ? buildGoop() : (selectedChar === 'goop-man') ? buildGoopMan() : buildModularMan();
         myCharacter.position.set(me.x, me.y, me.z);
         scene.add(myCharacter);
@@ -1041,7 +1287,19 @@
         state.baseY = me.y;
 
         for (var id in data.players) { if (id !== myId) createPlayer(id, data.players[id]); }
-        renderer.domElement.requestPointerLock();
+        
+        var welcomePanel = document.getElementById('welcome-panel');
+        var welcomeOkBtn = document.getElementById('welcome-ok-btn');
+        if (welcomePanel && welcomeOkBtn) {
+            welcomePanel.style.display = 'block';
+            welcomeOkBtn.onclick = function() {
+                welcomePanel.style.display = 'none';
+                if (!isMobile) renderer.domElement.requestPointerLock();
+            };
+        } else {
+            if (!isMobile) renderer.domElement.requestPointerLock();
+        }
+        
         addChatMessage('System', 'Welcome, ' + me.username + '! Click to look. WASD to move. Space to jump.', 0xaaaaaa);
         requestAnimationFrame(animate);
     });
@@ -1103,7 +1361,9 @@
             players[d.id].userData.inventory = d.inventory;
             players[d.id].userData.camPitch = d.camPitch;
             players[d.id].userData.isFishing = d.isFishing;
+            players[d.id].userData.fishingTarget = d.fishingTarget;
             players[d.id].userData.isCooking = d.isCooking;
+            players[d.id].userData.camYaw = d.camYaw;
             if (d.useFBX !== undefined) {
                 if (d.useFBX && !players[d.id].userData.useFBX) {
                     if (players[d.id].userData.fbxModel) bindPlayerBones(players[d.id].mesh);
@@ -1115,11 +1375,22 @@
             }
         }
     });
-    socket.on('playerShoot', function (d) {
+    socket.on('boatMoved', function (d) {
+        for (let i = 0; i < environmentObjects.length; i++) {
+            if (environmentObjects[i].userData.id === d.id && environmentObjects[i].userData.type === 'Boat') {
+                environmentObjects[i].position.set(d.x, d.y, d.z);
+                environmentObjects[i].rotation.y = d.ry;
+                break;
+            }
+        }
+    });
+    socket.on('remoteShoot', function (d) {
+        if (d.id === myId) return; // Already handled locally
         if (players[d.id]) {
-            const inv = players[d.id].userData.inventory !== undefined ? players[d.id].userData.inventory : 0;
-            if (inv === 1) shootGun(players[d.id].mesh, false);
-            else players[d.id].userData.shootTime = 0.15;
+            const inv = d.inventory !== undefined ? d.inventory : 0;
+            players[d.id].userData.shootTime = 0.15;
+            // Pass aim target coords {aimX, aimY, aimZ} or fallback data
+            if (inv === 1) shootGun(players[d.id].mesh, false, { dirX: d.aimDirX, dirY: d.aimDirY, dirZ: d.aimDirZ, camPitch: d.camPitch, camYaw: d.camYaw });
         }
     });
     socket.on('playerHit', function (d) {
@@ -1146,17 +1417,36 @@
     // It is now dynamically pulled from shared-characters.js hosted by 3D-Unified-Workspace!
 
     var lastEmitTime = 0;
+    var lastBoatEmitTime = 0;
+    var lastInteractionCheckTime = 0; // Throttle interaction proximity checks
     function animate() {
         if (!isPlaying) return;
         requestAnimationFrame(animate);
         var time = performance.now(), delta = Math.min((time - prevTime) / 1000, 0.1), t = time * 0.001;
         
         environmentUpdatables.forEach(u => {
-            if (u.update) u.update(delta);
+            if (u.update) u.update(t, delta);
         });
+
+        for (let i = splashParticles.length - 1; i >= 0; i--) {
+            let p = splashParticles[i];
+            p.life -= delta * 2.0;
+            if (p.life <= 0) {
+                scene.remove(p.mesh);
+                splashParticles.splice(i, 1);
+            } else {
+                p.mesh.position.y += p.vy * delta;
+                p.mesh.position.x += p.vx * delta;
+                p.mesh.position.z += p.vz * delta;
+                p.vy -= 2.0 * delta; // gravity
+                p.mesh.scale.setScalar(p.life);
+                p.mesh.material.opacity = p.life * 0.8;
+            }
+        }
 
         if (window.sharedWater) {
             window.sharedWater.material.uniforms['time'].value += delta;
+            window.sharedWater.position.y = -1.2 + Math.sin(t * 0.5) * 0.05;
         }
         if (window.RippleWater) {
             window.RippleWater.update(renderer);
@@ -1164,20 +1454,7 @@
         if (window.sharedClouds) {
             window.sharedClouds.rotation.y += 0.0005;
         }
-        // --- FISHING SPOT TARGETING (show ring when crosshair aimed) ---
-        if (isLocked && myCharacter && fishingSpots.length > 0) {
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            let interactables = [];
-            fishingSpots.forEach(s => s.children.forEach(c => interactables.push(c)));
-            const hits = raycaster.intersectObjects(interactables, false);
-            const targetedSpot = (hits.length > 0) ? (hits[0].object.userData.parentGroup || hits[0].object.parent) : null;
-            fishingSpots.forEach(group => {
-                if (group.userData.ring) {
-                    const isTargeted = (group === targetedSpot) && myCharacter.position.distanceTo(group.position) < 8.0;
-                    group.userData.ring.visible = isTargeted;
-                }
-            });
-        }
+        // Targeting and interaction checks are now consolidated inside checkPickupDroppedItems()
         // --- FISHING SPOTS BUBBLES ---
         // Bubbles are now animated by the updatable object created in ObjectFactory.js
 
@@ -1230,8 +1507,11 @@
             }
         }
 
-        // --- DROPPED ITEMS (bobbing + auto-pickup) ---
-        checkPickupDroppedItems();
+        // --- DROPPED ITEMS (bobbing + auto-pickup) --- throttle proximity check to 5Hz
+        if (time - lastInteractionCheckTime > 200) {
+            checkPickupDroppedItems();
+            lastInteractionCheckTime = time;
+        }
         droppedItems.forEach(pickup => {
             const age = t - pickup.userData.spawnTime;
             pickup.position.y = getTerrainHeight(pickup.position.x, pickup.position.z) + 0.3 + Math.sin(age * 2.0) * 0.1;
@@ -1261,12 +1541,7 @@
             orbObj.trailTimer += delta;
             if (orbObj.trailTimer > 0.03) {
                 orbObj.trailTimer = 0;
-                const tGeo = new THREE.SphereGeometry(0.06, 4, 4);
-                const tMat = new THREE.MeshBasicMaterial({
-                    color: orbObj.mesh.material.color.getHex(),
-                    transparent: true, opacity: 0.6
-                });
-                const tMesh = new THREE.Mesh(tGeo, tMat);
+                const tMesh = new THREE.Mesh(sharedTrailGeo, orbObj.trailMat);
                 tMesh.position.copy(orbObj.mesh.position);
                 scene.add(tMesh);
                 orbObj.trail.push({ mesh: tMesh, life: 0.4 });
@@ -1275,40 +1550,132 @@
             // Update trail particles
             for (let j = orbObj.trail.length - 1; j >= 0; j--) {
                 orbObj.trail[j].life -= delta;
-                orbObj.trail[j].mesh.material.opacity = Math.max(0, orbObj.trail[j].life / 0.4) * 0.6;
-                orbObj.trail[j].mesh.scale.multiplyScalar(0.96);
+                // Don't modify opacity of shared material here, scale the mesh instead to fade it out visually
+                orbObj.trail[j].mesh.scale.multiplyScalar(0.92);
                 if (orbObj.trail[j].life <= 0) {
                     scene.remove(orbObj.trail[j].mesh);
-                    orbObj.trail[j].mesh.geometry.dispose();
-                    orbObj.trail[j].mesh.material.dispose();
+                    // Do not dispose shared trail material or geometry here
                     orbObj.trail.splice(j, 1);
                 }
             }
 
             if (orbObj.mesh.position.distanceTo(targetPos) < 0.5 || orbObj.life <= 0) {
                 scene.remove(orbObj.mesh);
-                orbObj.mesh.geometry.dispose();
+                // Do not dispose shared orb geometry
                 orbObj.mesh.material.dispose();
+                if (orbObj.trailMat) orbObj.trailMat.dispose();
                 if (orbObj.light) orbObj.light.dispose();
                 // Clean remaining trail
-                orbObj.trail.forEach(tp => { scene.remove(tp.mesh); tp.mesh.geometry.dispose(); tp.mesh.material.dispose(); });
+                orbObj.trail.forEach(tp => { scene.remove(tp.mesh); });
                 vfxOrbs.splice(i, 1);
             }
         }
 
-        if (isLocked && myCharacter) {
+        if ((isLocked || inventoryOpen || isMobile) && myCharacter) {
             // --- EXACT input from Unified Workspace (line 2469-2470) ---
-            var moveZ = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
-            var moveX = (keys['KeyA'] ? 1 : 0) - (keys['KeyD'] ? 1 : 0);
+            var keyMoveZ = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
+            var keyMoveX = (keys['KeyA'] ? 1 : 0) - (keys['KeyD'] ? 1 : 0);
+            var moveZ = keyMoveZ || joystickMoveZ;
+            var moveX = keyMoveX || joystickMoveX;
             var isMoving = Math.abs(moveZ) > 0 || Math.abs(moveX) > 0;
             var isSprinting = keys['ShiftLeft'] || keys['ShiftRight'];
 
             var localVx = 0, localVz = 0;
-            // Stop gathering if player starts moving
-            if (isMoving && (autoFishing.active || autoCooking.active)) {
-                stopGathering();
+            // Stop gathering if player moves out of range
+            if (autoCooking.active && autoCooking.campfireGroup) {
+                if (myCharacter.position.distanceTo(autoCooking.campfireGroup.position) > 6.0) {
+                    stopGathering();
+                    addChatMessage('System', 'Moved too far from campfire.', 0xff9800);
+                }
             }
-            if (isMoving) {
+            if (autoFishing.active && autoFishing.spotGroup) {
+                var fishDist = myCharacter.position.distanceTo(autoFishing.spotGroup.position);
+                var maxFishDist = boatState.active ? 6.0 : 4.0; // Extended range when on boat
+                if (fishDist > maxFishDist) {
+                    stopGathering();
+                    addChatMessage('System', 'Moved too far from fishing spot.', 0xff9800);
+                }
+            }
+            // ---- BOAT RIDING MODE ----
+            if (boatState.active && boatState.boatGroup) {
+                var boat = boatState.boatGroup;
+                if (isMoving) {
+
+                    var bSpeed = isSprinting ? boatState.boatSprintSpeed : boatState.boatSpeed;
+                    var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
+                    direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
+
+                    // Rotate boat to face movement direction (always allowed)
+                    var targetYaw = Math.atan2(direction.x, direction.z);
+                    var diff = targetYaw - boat.rotation.y;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    boat.rotation.y += diff * 4 * delta;
+
+                    // Calculate next position
+                    var nextX = boat.position.x + direction.x * bSpeed * delta;
+                    var nextZ = boat.position.z + direction.z * bSpeed * delta;
+                    
+                    // Bounding box terrain sampling for robust shoreline collision
+                    const w = 0.5, l = 1.3;
+                    const pts = [
+                        new THREE.Vector3(0, 0, 0),
+                        new THREE.Vector3(w, 0, l),
+                        new THREE.Vector3(-w, 0, l),
+                        new THREE.Vector3(w, 0, -l),
+                        new THREE.Vector3(-w, 0, -l)
+                    ];
+                    let canMove = true;
+                    for (let pt of pts) {
+                        pt.applyAxisAngle(new THREE.Vector3(0, 1, 0), boat.rotation.y);
+                        // Water is at -1.2, so anything above -1.3 is considered shallow/shore
+                        if (getTerrainHeight(nextX + pt.x, nextZ + pt.z) > -1.3) {
+                            canMove = false;
+                            break;
+                        }
+                    }
+
+                    if (canMove) {
+                        boat.position.x = nextX;
+                        boat.position.z = nextZ;
+
+                        // Wake ripples
+                        if (window.RippleWater) {
+                            window.RippleWater.addDrop(renderer, boat.position.x, boat.position.z, 3.0, 0.2);
+                        }
+                        if (Math.random() < 0.4) {
+                            spawnSplashParticle(boat.position.x, boat.position.y, boat.position.z);
+                            spawnSplashParticle(boat.position.x, boat.position.y, boat.position.z);
+                        }
+                    }
+                    // else: boat is blocked by land — can still turn
+                    
+
+                    if (time - lastBoatEmitTime > 50) {
+                        console.log("[Client] Emitting boatMoved event:", boat.userData.id, boat.position.x, boat.position.z);
+                        socket.emit('boatMoved', {
+                            id: boat.userData.id,
+                            x: boat.position.x,
+                            y: boat.position.y,
+                            z: boat.position.z,
+                            ry: boat.rotation.y
+                        });
+                        lastBoatEmitTime = time;
+                    }
+
+                    var moveLen = Math.hypot(moveX, moveZ);
+                    var charSpeed = isSprinting ? 1.0 : 0.5;
+                    localVx = (moveX / moveLen) * charSpeed;
+                    localVz = (moveZ / moveLen) * charSpeed;
+                }
+
+                // Snap player to boat position (always)
+                myCharacter.position.set(boat.position.x, boat.position.y + 0.5, boat.position.z);
+                myCharacter.rotation.y = boat.rotation.y;
+                state.baseY = myCharacter.position.y;
+
+            // ---- NORMAL WALKING MODE ----
+            } else if (isMoving) {
                 // --- EXACT speed from Unified Workspace (line 2476) ---
                 var speed = isSprinting ? 0.22 : 0.1;
 
@@ -1328,6 +1695,9 @@
                 
                 if (myCharacter.position.y < -0.8 && window.RippleWater) {
                     window.RippleWater.addDrop(renderer, myCharacter.position.x, myCharacter.position.z, 2.0, 0.15);
+                    if (Math.random() < 0.2) {
+                        spawnSplashParticle(myCharacter.position.x, myCharacter.position.y, myCharacter.position.z);
+                    }
                 }
                 
                 var moveLen = Math.hypot(moveX, moveZ);
@@ -1340,15 +1710,17 @@
             }
 
             // --- Update Base Y from Terrain ---
-            state.baseY = getTerrainHeight(myCharacter.position.x, myCharacter.position.z);
+            if (!boatState.active) {
+                state.baseY = getTerrainHeight(myCharacter.position.x, myCharacter.position.z);
+            }
 
             // --- EXACT jump from Unified Workspace (line 2572-2580) ---
-            if (state.jumpTime >= 0) {
+            if (state.jumpTime >= 0 && !boatState.active) {
                 state.jumpTime += delta * 2.5;
                 var jumpH = Math.sin(Math.min(state.jumpTime, 1) * Math.PI) * 1.3;
                 myCharacter.position.y = state.baseY + Math.max(0, jumpH);
                 if (state.jumpTime >= 1.0) state.jumpTime = -1;
-            } else {
+            } else if (!boatState.active) {
                 myCharacter.position.y = state.baseY;
             }
 
@@ -1399,7 +1771,8 @@
             camera.lookAt(lookTgt);
 
             if (time - lastEmitTime > 50) {
-                socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz, inventory: state.inventory, camPitch: state.camPitch, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, isCooking: autoCooking.active });
+                const fTarget = (autoFishing.active && autoFishing.spotGroup) ? { x: autoFishing.spotGroup.position.x, z: autoFishing.spotGroup.position.z } : null;
+                socket.emit('playerMovement', { x: myCharacter.position.x, y: myCharacter.position.y, z: myCharacter.position.z, ry: myCharacter.rotation.y, isMoving: isMoving, isSprinting: isSprinting, isCrouching: state.isCrouching, jumpTime: state.jumpTime, localVx: localVx, localVz: localVz, inventory: state.inventory, camPitch: state.camPitch, camYaw: state.camYaw, useFBX: myCharacter.userData.useFBX || false, isFishing: autoFishing.active, fishingTarget: fTarget, isCooking: autoCooking.active });
                 lastEmitTime = time;
             }
         }
@@ -1434,6 +1807,9 @@
             
             if (p.isMoving && p.mesh.position.y < -0.8 && window.RippleWater) {
                 window.RippleWater.addDrop(renderer, p.mesh.position.x, p.mesh.position.z, 2.0, 0.15);
+                if (Math.random() < 0.2) {
+                    spawnSplashParticle(p.mesh.position.x, p.mesh.position.y, p.mesh.position.z);
+                }
             }
             
             if (p.targetRy !== undefined) {
@@ -1461,10 +1837,18 @@
                 
                 // Generic idle catching animation for remote players
                 if (p.mesh.userData.fishingRodData) {
+                    let wx, wz;
+                    if (p.userData.fishingTarget) {
+                        wx = p.userData.fishingTarget.x;
+                        wz = p.userData.fishingTarget.z;
+                    } else {
+                        wx = p.mesh.position.x + Math.sin(p.mesh.rotation.y) * 4.0;
+                        wz = p.mesh.position.z + Math.cos(p.mesh.rotation.y) * 4.0;
+                    }
                     const waterTarget = new THREE.Vector3(
-                        p.mesh.position.x + Math.sin(p.mesh.rotation.y) * 4.0,
+                        wx + Math.sin(t * 0.5) * 0.3,
                         -1.0 + Math.sin(t * 1.5) * 0.05,
-                        p.mesh.position.z + Math.cos(p.mesh.rotation.y) * 4.0
+                        wz + Math.cos(t * 0.5) * 0.3
                     );
                     const catchProgress = 0.5 + Math.sin(t) * 0.2; // simulate variable tension
                     ObjectFactory.animateFishingRod(p.mesh.userData.fishingRodData, p.mesh, waterTarget, t, catchProgress);
@@ -1485,6 +1869,20 @@
                     Math.hypot(p.localVx || 0, p.localVz || 0),
                     inv, Math.max(0, p.userData.shootTime || 0), p.userData.camPitch || 0
                 );
+
+                // Apply upper-body twist so remote players visually aim where their camera looks
+                if (p.charType === 'modular' && p.mesh.userData.bp && p.userData.camYaw !== undefined) {
+                    var ubp = p.mesh.userData.bp;
+                    var yawDiff = p.userData.camYaw - p.mesh.rotation.y;
+                    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+                    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+                    var maxTwist = Math.PI * 0.5;
+                    var twist = Math.max(-maxTwist, Math.min(maxTwist, yawDiff));
+                    ubp.torso.rotation.y += twist * 0.4;
+                    if (ubp.head) ubp.head.rotation.y = twist * 0.6;
+                    ubp.torso.rotation.x += (p.userData.camPitch || 0) * 0.2;
+                    if (ubp.head) ubp.head.rotation.x += (p.userData.camPitch || 0) * 0.4;
+                }
             }
             
             var vec = p.mesh.position.clone();
@@ -1499,4 +1897,85 @@
         }
         renderer.render(scene, camera); prevTime = time;
     }
+    
+    // --- MOBILE CONTROLS INITIALIZATION ---
+    document.addEventListener("DOMContentLoaded", () => {
+        if (isMobile) {
+            document.getElementById('mobile-controls').style.display = 'block';
+            
+            if (window.nipplejs) {
+                const manager = nipplejs.create({
+                    zone: document.getElementById('joystick-zone'),
+                    mode: 'static',
+                    position: { left: '50%', top: '50%' },
+                    color: 'white',
+                    size: 100
+                });
+                manager.on('move', (evt, data) => {
+                    joystickMoveX = -data.vector.x;
+                    joystickMoveZ = data.vector.y;
+                });
+                manager.on('end', () => {
+                    joystickMoveX = 0;
+                    joystickMoveZ = 0;
+                });
+            }
+
+            let lastTouchX = null, lastTouchY = null;
+            const lookZone = document.getElementById('look-zone');
+            lookZone.addEventListener('touchstart', (e) => {
+                lastTouchX = e.changedTouches[0].pageX;
+                lastTouchY = e.changedTouches[0].pageY;
+            });
+            lookZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (lastTouchX === null || lastTouchY === null) return;
+                const touch = e.changedTouches[0];
+                const dx = touch.pageX - lastTouchX;
+                const dy = touch.pageY - lastTouchY;
+                lastTouchX = touch.pageX;
+                lastTouchY = touch.pageY;
+                
+                state.camYaw -= dx * 0.005;
+                state.camPitch += dy * 0.005;
+                state.camPitch = Math.max(-1.0, Math.min(1.2, state.camPitch));
+            }, { passive: false });
+            lookZone.addEventListener('touchend', () => {
+                lastTouchX = null; lastTouchY = null;
+            });
+
+            // Mobile Buttons
+            const btnInv = document.getElementById('mobile-btn-inv');
+            const btnDrop = document.getElementById('mobile-btn-drop');
+            const btnChat = document.getElementById('mobile-btn-chat');
+            const btnE = document.getElementById('mobile-btn-e');
+            const btnJump = document.getElementById('mobile-btn-jump');
+
+            btnInv.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                document.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Tab' }));
+            }, {passive: false});
+
+            btnDrop.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                document.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Backspace' }));
+            }, {passive: false});
+
+            btnChat.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                chatInput.focus();
+            }, {passive: false});
+
+            btnE.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (nearestInteractable && !inventoryOpen) interactWithNearest();
+            }, {passive: false});
+
+            btnJump.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (state.jumpTime < 0) state.jumpTime = 0;
+            }, {passive: false});
+        }
+    });
+
 })();

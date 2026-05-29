@@ -4,11 +4,12 @@
 // WASD fly, follow-player camera, full object palette,
 // live player rendering with animation & nametags
 
-// Connect to PRODUCTION server to see live players
-const PROD_SOCKET_URL = 'https://chatroom.nolimitnexus.com';
-const socket = io(PROD_SOCKET_URL, { transports: ['websocket', 'polling'] });
-socket.on('connect', () => console.log('Editor connected to LIVE server'));
-socket.on('connect_error', (err) => console.warn('Prod socket error, trying local...', err.message));
+// Connect to the SAME server the editor is served from (relative connection).
+// If opened from localhost:3000/editor.html, it connects to localhost:3000.
+// If opened from chatroom.nolimitnexus.com/editor.html, it connects to prod.
+const socket = io({ transports: ['websocket', 'polling'] });
+socket.on('connect', () => console.log('Editor connected to:', window.location.origin));
+socket.on('connect_error', (err) => console.warn('Editor socket error:', err.message));
 
 // ============================================================
 // SCENE SETUP
@@ -44,6 +45,10 @@ scene.add(transformControl);
 // Shared Environment (terrain, water, sky, clouds)
 if (window.setupSharedEnvironment) {
     window.setupSharedEnvironment(scene, renderer, camera);
+    // Init ripple simulation for smooth water (same as game client)
+    if (window.RippleWater && window.sharedWater) {
+        window.RippleWater.init(renderer, window.sharedWater);
+    }
 }
 
 // ============================================================
@@ -123,9 +128,15 @@ window.addEventListener('mousemove', (event) => {
     const hitPoint = new THREE.Vector3();
     raycaster.ray.intersectPlane(groundPlane, hitPoint);
     if (hitPoint) {
-        if (placementMode === 'FishingSpot') {
-            // Fishing spots always sit on the water surface
+        if (placementMode === 'FishingSpot' || placementMode === 'Boat') {
+            // Water-only objects sit on the water surface
             hitPoint.y = WATER_LEVEL;
+            // Tint ghost red/green based on whether it's actually over water
+            if (window.getSharedTerrainHeight) {
+                const terrainH = window.getSharedTerrainHeight(hitPoint.x, hitPoint.z);
+                const overWater = terrainH < WATER_LEVEL + 0.2;
+                placementGhost.traverse(c => { if (c.material && c.material.emissive) c.material.emissive.setHex(overWater ? 0x004400 : 0x440000); });
+            }
         } else if (window.getSharedTerrainHeight) {
             hitPoint.y = window.getSharedTerrainHeight(hitPoint.x, hitPoint.z);
         }
@@ -142,7 +153,16 @@ function placeObjectAtClick(event) {
     const hitPoint = new THREE.Vector3();
     raycaster.ray.intersectPlane(groundPlane, hitPoint);
     if (hitPoint) {
-        if (placementMode === 'FishingSpot') {
+        if (placementMode === 'FishingSpot' || placementMode === 'Boat') {
+            // Validate: must be placed over water
+            if (window.getSharedTerrainHeight) {
+                const terrainH = window.getSharedTerrainHeight(hitPoint.x, hitPoint.z);
+                if (terrainH >= WATER_LEVEL + 0.2) {
+                    showNotification('⚠️ ' + placementMode + ' can only be placed on water!');
+                    cancelPlacementMode();
+                    return true;
+                }
+            }
             hitPoint.y = WATER_LEVEL;
         } else if (window.getSharedTerrainHeight) {
             hitPoint.y = window.getSharedTerrainHeight(hitPoint.x, hitPoint.z);
@@ -223,43 +243,48 @@ function instantiateObject(data) {
 }
 
 // ============================================================
-// MAP SAVE — pushes to local dev AND production NAS
+// MAP SAVE — pushes to local + production
 // ============================================================
 const PROD_URL = 'https://chatroom.nolimitnexus.com';
 
 function saveMap() {
     const mapData = {
-        objects: environmentObjects.map(obj => ({
-            id: obj.userData.id,
-            type: obj.userData.type,
-            name: obj.userData.name || '',
-            tags: obj.userData.tags || [],
-            position: { x: obj.position.x, y: obj.position.y, z: obj.position.z },
-            rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z },
-            scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z }
-        }))
+        objects: environmentObjects.map(obj => {
+            const isBoat = obj.userData.type === 'Boat';
+            return {
+                id: obj.userData.id,
+                type: obj.userData.type,
+                name: obj.userData.name || '',
+                tags: obj.userData.tags || [],
+                position: { 
+                    x: obj.position.x, 
+                    y: isBoat ? -1.2 : obj.position.y, 
+                    z: obj.position.z 
+                },
+                rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z },
+                scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z }
+            };
+        })
     };
     const body = JSON.stringify(mapData);
     const headers = { 'Content-Type': 'application/json' };
 
-    // Save to local dev server
+    // Save to whichever server this editor is served from
     const localSave = fetch('/api/map', { method: 'POST', headers, body })
-        .then(() => 'dev')
+        .then(() => 'local')
         .catch(() => null);
 
-    // Save to production NAS (cross-origin)
+    // Save to production NAS
     const prodSave = fetch(PROD_URL + '/api/map', { method: 'POST', headers, body })
-        .then(() => 'prod')
+        .then(() => 'live')
         .catch(() => null);
 
     Promise.all([localSave, prodSave]).then(results => {
         const saved = results.filter(Boolean);
-        if (saved.includes('dev') && saved.includes('prod')) {
-            showNotification('✅ Saved to Dev + Live!');
-        } else if (saved.includes('dev')) {
-            showNotification('⚠️ Saved Dev only (NAS offline)');
-        } else if (saved.includes('prod')) {
-            showNotification('✅ Saved to Live only');
+        if (saved.length === 2) {
+            showNotification('✅ Saved to Local + Live!');
+        } else if (saved.length === 1) {
+            showNotification('⚠️ Saved to ' + saved[0] + ' only');
         } else {
             showNotification('❌ Save failed!');
         }
@@ -375,6 +400,21 @@ document.getElementById('btn-duplicate').addEventListener('click', () => {
 });
 
 document.getElementById('btn-save').addEventListener('click', saveMap);
+
+document.getElementById('btn-sync').addEventListener('click', () => {
+    fetch('/api/sync-from-prod')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Successfully synced ${data.objects} objects from Production. The page will now reload to apply changes.`);
+                window.location.reload();
+            }
+        })
+        .catch(err => {
+            console.error('Error syncing from prod:', err);
+            alert('Failed to sync from production.');
+        });
+});
 
 // ============================================================
 // UI — Camera modes
@@ -502,7 +542,7 @@ function showPropertiesPanel(obj) {
         <div style="margin-bottom:4px;"><label style="color:#64748b;font-size:0.65rem;">TAGS (comma separated)</label>
             <input id="prop-tags" type="text" value="${(obj.userData.tags || []).join(', ')}" placeholder="e.g. spawn, north, fishing" style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:4px 6px;border-radius:4px;font-size:0.75rem;outline:none;margin-top:2px;"></div>
         <div style="color:#475569;font-size:0.6rem;">ID: ${obj.userData.id}</div>
-        <div style="color:#475569;font-size:0.6rem;">Pos: ${obj.position.x.toFixed(1)}, ${obj.position.y.toFixed(1)}, ${obj.position.z.toFixed(1)}</div>
+        <div style="color:#475569;font-size:0.6rem;">Pos: <span id="prop-pos-val">${obj.position.x.toFixed(1)}, ${obj.position.y.toFixed(1)}, ${obj.position.z.toFixed(1)}</span></div>
     `;
 
     document.getElementById('prop-name').addEventListener('change', function() {
@@ -549,13 +589,20 @@ function createLivePlayer(id, data) {
     const charType = data.charType || 'modular';
     let mesh;
 
+    console.log(`[Editor] Creating player "${data.username}" id=${id} charType=${charType}`);
+    console.log(`[Editor] Build functions: buildModularMan=${!!window.buildModularMan}, buildGoop=${!!window.buildGoop}, buildGoopMan=${!!window.buildGoopMan}, animateCharacter=${!!window.animateCharacter}`);
+
     if (charType === 'goop' && window.buildGoop) {
         mesh = window.buildGoop();
+        console.log('[Editor] Built GOOP character');
     } else if (charType === 'goop-man' && window.buildGoopMan) {
         mesh = window.buildGoopMan();
+        console.log('[Editor] Built GOOP-MAN character');
     } else if (window.buildModularMan) {
         mesh = window.buildModularMan();
+        console.log('[Editor] Built MODULAR MAN character');
     } else {
+        console.warn('[Editor] FALLBACK: No build functions available! Using placeholder box.');
         const geo = new THREE.BoxGeometry(0.5, 1.5, 0.5);
         const mat = new THREE.MeshStandardMaterial({ color: data.color || 0x3b82f6 });
         mesh = new THREE.Mesh(geo, mat);
@@ -688,6 +735,38 @@ socket.on('playerMoved', function(d) {
     p.userData.camPitch = d.camPitch;
     p.userData.isFishing = d.isFishing;
     p.userData.isCooking = d.isCooking;
+    p.userData.camYaw = d.camYaw;
+});
+
+socket.on('boatMoved', function (d) {
+    console.log("[Editor] Received boatMoved event:", d);
+    let found = false;
+    for (let i = 0; i < environmentObjects.length; i++) {
+        if (environmentObjects[i].userData.id === d.id && environmentObjects[i].userData.type === 'Boat') {
+            console.log("[Editor] Found matching boat, updating position:", d.x, d.y, d.z);
+            environmentObjects[i].position.set(d.x, d.y, d.z);
+            environmentObjects[i].rotation.y = d.ry;
+            
+            // If the moved boat is currently selected, update selection helper and coordinate display
+            if (selectedObject === environmentObjects[i]) {
+                if (selectedObject.userData.boxHelper) {
+                    selectedObject.userData.boxHelper.update();
+                }
+                const posEl = document.getElementById('prop-pos-val');
+                if (posEl) {
+                    posEl.textContent = `${d.x.toFixed(1)}, ${d.y.toFixed(1)}, ${d.z.toFixed(1)}`;
+                }
+            }
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        const boatIds = environmentObjects
+            .filter(o => o.userData.type === 'Boat')
+            .map(o => o.userData.id);
+        console.warn(`[Editor] Boat with ID "${d.id}" not found in editor! Existing boat IDs:`, boatIds);
+    }
 });
 
 socket.on('playerLeft', function(id) {
@@ -697,8 +776,81 @@ socket.on('playerLeft', function(id) {
     }
 });
 
-socket.on('playerShoot', function(d) {
-    if (livePlayers[d.id]) livePlayers[d.id].userData.shootTime = 0.15;
+// ---- SHOOTING VISUALS IN EDITOR ----
+const editorTracers = [];
+
+function editorShootGun(playerObj, shootData) {
+    if (!playerObj || !playerObj.mesh) return;
+    const mesh = playerObj.mesh;
+    const bp = mesh.userData.bp;
+    const inv = shootData.inventory !== undefined ? shootData.inventory : 0;
+
+    // Set shootTime for recoil animation
+    playerObj.userData.shootTime = 0.15;
+
+    if (inv !== 1) return; // Only spawn bullets for guns
+
+    // Muzzle flash
+    const flashGeo = new THREE.PlaneGeometry(0.4, 0.4);
+    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+    const flash1 = new THREE.Mesh(flashGeo, flashMat);
+    const flash2 = new THREE.Mesh(flashGeo, flashMat);
+    flash2.rotation.y = Math.PI / 2;
+    const flash = new THREE.Group();
+    flash.add(flash1); flash.add(flash2);
+
+    const gunObj = (bp && bp.gun) ? bp.gun : (mesh.userData.gun ? mesh.userData.gun : null);
+    if (gunObj) {
+        if (mesh.userData.blob) {
+            flash.position.set(0, 0, 0.35);
+        } else {
+            flash.position.set(0, -0.28, 0.05);
+            flash.rotation.x = -Math.PI / 2;
+        }
+        flash.rotation.y = Math.random() * Math.PI;
+        gunObj.add(flash);
+    }
+
+    setTimeout(() => {
+        if (gunObj && flash) gunObj.remove(flash);
+        flashGeo.dispose(); flashMat.dispose();
+    }, 50);
+
+    // Tracer - thicker for editor visibility
+    const tracerGeo = new THREE.CylinderGeometry(0.03, 0.03, 5.0);
+    tracerGeo.rotateX(Math.PI / 2);
+    const tracer = new THREE.Mesh(tracerGeo, new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.9 }));
+    scene.add(tracer);
+
+    // Start from shoulder height
+    const startPos = mesh.position.clone();
+    startPos.y += 1.3;
+
+    let aimDir;
+    if (shootData.aimDirX !== undefined) {
+        // Use exact aim direction from shooter's camera
+        aimDir = new THREE.Vector3(shootData.aimDirX, shootData.aimDirY, shootData.aimDirZ).normalize();
+    } else {
+        // Fallback to camYaw/camPitch
+        const ry = shootData.camYaw !== undefined ? shootData.camYaw : (shootData.ry || mesh.rotation.y);
+        const pitch = shootData.camPitch || 0;
+        aimDir = new THREE.Vector3(0, 0, 1);
+        aimDir.applyAxisAngle(new THREE.Vector3(1, 0, 0), -pitch);
+        aimDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), ry);
+    }
+
+    startPos.addScaledVector(aimDir, 0.5); // nudge forward along aim
+    const aimTgt = startPos.clone().add(aimDir.clone().multiplyScalar(100));
+
+    tracer.position.copy(startPos);
+    tracer.lookAt(aimTgt);
+
+    const velocity = aimDir.clone().multiplyScalar(120);
+    editorTracers.push({ mesh: tracer, v: velocity, life: 1.5 });
+}
+
+socket.on('remoteShoot', function(d) {
+    if (livePlayers[d.id]) editorShootGun(livePlayers[d.id], d);
 });
 
 socket.on('chatMessage', function(d) {
@@ -796,9 +948,10 @@ function animate() {
     }
 
     // ---- Updatables (campfires, torches, etc.) ----
-    updatables.forEach(u => u.update && u.update(dt));
+    updatables.forEach(u => u.update && u.update(t, dt));
 
     if (window.sharedWater) window.sharedWater.material.uniforms['time'].value += dt;
+    if (window.RippleWater) window.RippleWater.update(renderer);
     if (window.sharedClouds) window.sharedClouds.rotation.y += 0.0005;
 
     // ---- Animate Live Players ----
@@ -836,6 +989,20 @@ function animate() {
                 Math.max(0, p.userData.shootTime || 0),
                 p.userData.camPitch || 0
             );
+
+            // Upper-body twist so editor shows players aiming where their camera looks
+            if ((p.charType === 'modular') && p.mesh.userData.bp && p.userData.camYaw !== undefined) {
+                var ubp = p.mesh.userData.bp;
+                var yawDiff = p.userData.camYaw - p.mesh.rotation.y;
+                while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+                while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+                var maxTwist = Math.PI * 0.5;
+                var twist = Math.max(-maxTwist, Math.min(maxTwist, yawDiff));
+                ubp.torso.rotation.y += twist * 0.4;
+                if (ubp.head) ubp.head.rotation.y = twist * 0.6;
+                ubp.torso.rotation.x += (p.userData.camPitch || 0) * 0.2;
+                if (ubp.head) ubp.head.rotation.x += (p.userData.camPitch || 0) * 0.4;
+            }
         }
 
         if (window.ObjectFactory) {
@@ -867,6 +1034,20 @@ function animate() {
             p.nametag.style.display = 'block';
             p.nametag.style.left = ((namePos.x * 0.5 + 0.5) * window.innerWidth) + 'px';
             p.nametag.style.top = ((-(namePos.y * 0.5) + 0.5) * window.innerHeight) + 'px';
+        }
+    }
+
+    // Update editor tracers (bullet projectiles)
+    for (let i = editorTracers.length - 1; i >= 0; i--) {
+        const t = editorTracers[i];
+        t.mesh.position.addScaledVector(t.v, dt);
+        t.life -= dt * 1.5;
+        t.mesh.material.opacity = Math.max(0, t.life);
+        if (t.life <= 0) {
+            scene.remove(t.mesh);
+            t.mesh.geometry.dispose();
+            t.mesh.material.dispose();
+            editorTracers.splice(i, 1);
         }
     }
 
