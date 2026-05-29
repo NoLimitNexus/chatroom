@@ -31,16 +31,53 @@
     var GAME_ITEMS = {
         raw_shrimp:    { id: 'raw_shrimp',    name: 'Raw Shrimp',    color: 0xffbdde, icon: 'assets/icons/fish/shrimp.png',    cookable: true, cookedId: 'cooked_shrimp' },
         raw_trout:     { id: 'raw_trout',     name: 'Raw Trout',     color: 0xa8a8a8, icon: 'assets/icons/fish/trout.png',     cookable: true, cookedId: 'cooked_trout' },
-        cooked_shrimp: { id: 'cooked_shrimp', name: 'Cooked Shrimp', color: 0xff7043, icon: 'assets/icons/fish/shrimp.png',    cookable: false },
-        cooked_trout:  { id: 'cooked_trout',  name: 'Cooked Trout',  color: 0xd4a574, icon: 'assets/icons/fish/trout.png',     cookable: false }
+        raw_salmon:    { id: 'raw_salmon',    name: 'Raw Salmon',    color: 0xff8a80, icon: 'assets/icons/fish/salmon.png',    cookable: true, cookedId: 'cooked_salmon' },
+        raw_lobster:   { id: 'raw_lobster',   name: 'Raw Lobster',   color: 0xff5252, icon: 'assets/icons/fish/lobster.png',   cookable: true, cookedId: 'cooked_lobster' },
+        raw_swordfish: { id: 'raw_swordfish', name: 'Raw Swordfish', color: 0x90caf9, icon: 'assets/icons/fish/swordfish.png', cookable: true, cookedId: 'cooked_swordfish' },
+
+        cooked_shrimp:    { id: 'cooked_shrimp',    name: 'Cooked Shrimp',    color: 0xff7043, icon: 'assets/icons/fish/shrimp.png',    cookable: false },
+        cooked_trout:     { id: 'cooked_trout',     name: 'Cooked Trout',     color: 0xd4a574, icon: 'assets/icons/fish/trout.png',     cookable: false },
+        cooked_salmon:    { id: 'cooked_salmon',    name: 'Cooked Salmon',    color: 0xffab40, icon: 'assets/icons/fish/salmon.png',    cookable: false },
+        cooked_lobster:   { id: 'cooked_lobster',   name: 'Cooked Lobster',   color: 0xe64a19, icon: 'assets/icons/fish/lobster.png',   cookable: false },
+        cooked_swordfish: { id: 'cooked_swordfish', name: 'Cooked Swordfish', color: 0xb0bec5, icon: 'assets/icons/fish/swordfish.png', cookable: false }
     };
     var playerItems = new Array(20).fill(null);
     var fishingSpots = [];
     var vfxOrbs = [];
+    var activeJumpingFish = []; // Animate 3D fish jumping to player's hands
     var inventoryOpen = false; // hidden by default, toggled with Tab
 
+    // Helper to generate a low-poly 3D fish mesh representation
+    function create3DFish(color) {
+        const group = new THREE.Group();
+        
+        // Body (tapered cone aligned along Z axis)
+        const bodyGeo = new THREE.ConeGeometry(0.12, 0.4, 4);
+        bodyGeo.rotateX(Math.PI / 2); // Z-aligned
+        const bodyMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.1 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        group.add(body);
+        
+        // Tail Fin (small flat box or cone)
+        const tailGeo = new THREE.ConeGeometry(0.08, 0.18, 4);
+        tailGeo.rotateX(Math.PI / 2);
+        const tail = new THREE.Mesh(tailGeo, bodyMat);
+        tail.position.z = -0.22;
+        group.add(tail);
+        
+        // Dorsal Fin
+        const finGeo = new THREE.BoxGeometry(0.015, 0.12, 0.08);
+        const finMat = new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.8 });
+        const fin = new THREE.Mesh(finGeo, finMat);
+        fin.position.y = 0.09;
+        fin.position.z = -0.05;
+        group.add(fin);
+        
+        return group;
+    }
+
     // Auto-fishing & auto-cooking state (mutually exclusive)
-    var autoFishing = { active: false, spotGroup: null, timer: 0, interval: 1.5 };
+    var autoFishing = { active: false, spotGroup: null, state: 'idle', timer: 0, stateDuration: 0 };
     var autoCooking = { active: false, campfireGroup: null, timer: 0, interval: 2.0 };
     var fishingRodData = null; // { rodGroup, line, bob, segments }
 
@@ -387,10 +424,11 @@
             stopGathering();
             autoFishing.active = true;
             autoFishing.spotGroup = pickup;
+            autoFishing.state = 'casting';
             autoFishing.timer = 0;
+            autoFishing.stateDuration = 2.0;
             if (window.ObjectFactory) ObjectFactory.attachFishingRodToPlayer(myCharacter, scene);
-            collectFish(pickup);
-            if (autoFishing.active) addChatMessage('System', 'Fishing... move away to stop.', 0x4fc3f7);
+            addChatMessage('System', 'You cast your line and wait for a bite...', 0x4fc3f7);
         } else if (pickup.userData && pickup.userData.type === 'Campfire') {
             stopGathering();
             autoCooking.active = true;
@@ -1082,20 +1120,7 @@
         vfxOrbs.push({ mesh: orb, glow, light: null, target: myCharacter, life: 1.5, trail, trailTimer: 0, trailMat });
     }
 
-    // --- Collect a fish from a spot ---
-    function collectFish(spotGroup) {
-        const fishType = Math.random() > 0.4 ? GAME_ITEMS.raw_shrimp : GAME_ITEMS.raw_trout;
-        const emptyIdx = playerItems.indexOf(null);
-        if (emptyIdx !== -1) {
-            playerItems[emptyIdx] = fishType;
-            updateInventoryUI();
-            addChatMessage('System', 'You caught a ' + fishType.name + '!', 0x4fc3f7);
-            spawnCollectionOrb(spotGroup.position.clone().add(new THREE.Vector3(0, 0.5, 0)), fishType);
-        } else {
-            addChatMessage('System', 'Inventory full!', 0xff4444);
-            stopGathering();
-        }
-    }
+
 
     // --- Cook one raw fish on a campfire (returns false if nothing to cook) ---
     function cookOneFish(campfireGroup) {
@@ -1116,6 +1141,7 @@
         let changed = false;
         if (autoFishing.active) {
             autoFishing.active = false;
+            autoFishing.state = 'idle';
             ObjectFactory.detachFishingRodFromPlayer(myCharacter, scene);
             addChatMessage('System', 'Stopped fishing.', 0x4fc3f7);
             changed = true;
@@ -1466,24 +1492,182 @@
         // --- FISHING SPOTS BUBBLES ---
         // Bubbles are now animated by the updatable object created in ObjectFactory.js
 
+        // --- 3D JUMPING FISH ANIMATIONS ---
+        for (let i = activeJumpingFish.length - 1; i >= 0; i--) {
+            let jf = activeJumpingFish[i];
+            jf.elapsed += delta;
+            let progress = jf.elapsed / jf.duration;
+            if (progress >= 1.0) {
+                scene.remove(jf.mesh);
+                activeJumpingFish.splice(i, 1);
+            } else {
+                // Parabolic trajectory
+                let x = (1 - progress) * jf.startPos.x + progress * jf.endPos.x;
+                let z = (1 - progress) * jf.startPos.z + progress * jf.endPos.z;
+                // height peak is 2.5
+                let y = (1 - progress) * jf.startPos.y + progress * jf.endPos.y + Math.sin(progress * Math.PI) * 2.5;
+                jf.mesh.position.set(x, y, z);
+
+                // Rotate the fish to face flight path
+                let nextX = (1 - (progress + 0.01)) * jf.startPos.x + (progress + 0.01) * jf.endPos.x;
+                let nextZ = (1 - (progress + 0.01)) * jf.startPos.z + (progress + 0.01) * jf.endPos.z;
+                let nextY = (1 - (progress + 0.01)) * jf.startPos.y + (progress + 0.01) * jf.endPos.y + Math.sin((progress + 0.01) * Math.PI) * 2.5;
+                let dir = new THREE.Vector3(nextX - x, nextY - y, nextZ - z).normalize();
+                
+                let targetRotY = Math.atan2(dir.x, dir.z);
+                let targetRotX = -Math.asin(dir.y);
+                jf.mesh.rotation.set(targetRotX, targetRotY, 0);
+
+                // Wiggle body
+                jf.mesh.rotation.z += Math.sin(jf.elapsed * 25) * 0.3;
+
+                // Spawn small water drops occasionally during flight
+                if (Math.random() < 0.15) {
+                    spawnSplashParticle(x, y, z);
+                }
+            }
+        }
+
         // --- AUTO-FISHING LOOP + ROD ANIMATION ---
         if (autoFishing.active && autoFishing.spotGroup && myCharacter) {
             const dist = myCharacter.position.distanceTo(autoFishing.spotGroup.position);
             if (dist > 10.0) {
                 autoFishing.active = false;
+                autoFishing.state = 'idle';
                 ObjectFactory.detachFishingRodFromPlayer(myCharacter, scene);
                 addChatMessage('System', 'Stopped fishing.', 0x4fc3f7);
             } else {
                 autoFishing.timer += delta;
-                if (autoFishing.timer >= autoFishing.interval) {
+                
+                let catchProgress = 0;
+                
+                // State machine transitions
+                if (autoFishing.timer >= autoFishing.stateDuration) {
                     autoFishing.timer = 0;
-                    collectFish(autoFishing.spotGroup);
+                    
+                    if (autoFishing.state === 'casting') {
+                        // Cast complete, now waiting
+                        autoFishing.state = 'waiting';
+                        autoFishing.stateDuration = 4.0 + Math.random() * 4.0; // 4 to 8 seconds
+                    } else if (autoFishing.state === 'waiting') {
+                        // Decide next step
+                        if (Math.random() < 0.6) {
+                            // Nibble!
+                            autoFishing.state = 'nibbling';
+                            autoFishing.stateDuration = 2.5;
+                            addChatMessage('System', 'The bobber twitches... Something is nibbling!', 0x4fc3f7);
+                        } else {
+                            // Straight to bite!
+                            autoFishing.state = 'bite';
+                            autoFishing.stateDuration = 3.0;
+                            addChatMessage('System', 'Fish on the hook! Reeling it in...', 0x4fc3f7);
+                        }
+                    } else if (autoFishing.state === 'nibbling') {
+                        // Nibble finished
+                        if (Math.random() < 0.7) {
+                            // Bite!
+                            autoFishing.state = 'bite';
+                            autoFishing.stateDuration = 3.0;
+                            addChatMessage('System', 'Fish on the hook! Reeling it in...', 0x4fc3f7);
+                        } else {
+                            // False alarm
+                            autoFishing.state = 'waiting';
+                            autoFishing.stateDuration = 3.0 + Math.random() * 3.0;
+                            addChatMessage('System', 'The fish got away without biting. Still waiting...', 0x90a4ae);
+                        }
+                    } else if (autoFishing.state === 'bite') {
+                        // Bite finished -> Catch!
+                        const emptyIdx = playerItems.indexOf(null);
+                        if (emptyIdx !== -1) {
+                            // Catch fish
+                            const roll = Math.random();
+                            let fishType = GAME_ITEMS.raw_shrimp;
+                            let weight = 0.1 + Math.random() * 0.2;
+                            if (roll > 0.40) {
+                                fishType = GAME_ITEMS.raw_trout;
+                                weight = 1.5 + Math.random() * 3.0;
+                            }
+                            if (roll > 0.75) {
+                                fishType = GAME_ITEMS.raw_salmon;
+                                weight = 5.0 + Math.random() * 7.0;
+                            }
+                            if (roll > 0.90) {
+                                fishType = GAME_ITEMS.raw_lobster;
+                                weight = 1.0 + Math.random() * 2.0;
+                            }
+                            if (roll > 0.98) {
+                                fishType = GAME_ITEMS.raw_swordfish;
+                                weight = 30.0 + Math.random() * 60.0;
+                            }
+
+                            // Add to inventory
+                            playerItems[emptyIdx] = fishType;
+                            updateInventoryUI();
+                            addChatMessage('System', `You caught a ${fishType.name}! (Weight: ${weight.toFixed(1)} lbs)`, 0x4fc3f7);
+
+                            // Trigger the jumping fish 3D animation!
+                            const spotPos = autoFishing.spotGroup.position.clone();
+                            spotPos.y = -1.0; // water surface
+                            const playerPos = myCharacter.position.clone();
+                            playerPos.y += 1.0; // hand height
+
+                            // Create 3D fish mesh
+                            const fishMesh = create3DFish(fishType.color);
+                            scene.add(fishMesh);
+                            activeJumpingFish.push({
+                                mesh: fishMesh,
+                                startPos: spotPos,
+                                endPos: playerPos,
+                                elapsed: 0,
+                                duration: 1.2
+                            });
+
+                            // Spawn a final collector VFX orb at the hand position to fly to inventory
+                            spawnCollectionOrb(playerPos, fishType);
+                            
+                            // Re-cast
+                            autoFishing.state = 'casting';
+                            autoFishing.stateDuration = 2.0;
+                            addChatMessage('System', 'Re-casting line...', 0x4fc3f7);
+                        } else {
+                            addChatMessage('System', 'Inventory full! Stopped fishing.', 0xff4444);
+                            autoFishing.active = false;
+                            autoFishing.state = 'idle';
+                            ObjectFactory.detachFishingRodFromPlayer(myCharacter, scene);
+                        }
+                    }
+                }
+
+                // Determine catchProgress for visual animation
+                if (autoFishing.state === 'casting') {
+                    catchProgress = 0;
+                } else if (autoFishing.state === 'waiting') {
+                    catchProgress = 0;
+                    // Gentle water ripples around bobber
+                    if (Math.random() < 0.05 && window.RippleWater) {
+                        window.RippleWater.addDrop(renderer, autoFishing.spotGroup.position.x, autoFishing.spotGroup.position.z, 0.8, 0.02);
+                    }
+                } else if (autoFishing.state === 'nibbling') {
+                    // Jiggling
+                    catchProgress = 0.85;
+                    if (Math.random() < 0.15 && window.RippleWater) {
+                        window.RippleWater.addDrop(renderer, autoFishing.spotGroup.position.x, autoFishing.spotGroup.position.z, 1.2, 0.05);
+                    }
+                } else if (autoFishing.state === 'bite') {
+                    // Sunk and splashing
+                    catchProgress = 0.95;
+                    const spotPos = autoFishing.spotGroup.position;
+                    if (Math.random() < 0.3) {
+                        spawnSplashParticle(spotPos.x + (Math.random() - 0.5) * 0.2, -1.0, spotPos.z + (Math.random() - 0.5) * 0.2);
+                    }
+                    if (Math.random() < 0.25 && window.RippleWater) {
+                        window.RippleWater.addDrop(renderer, spotPos.x, spotPos.z, 2.0, 0.12);
+                    }
                 }
 
                 // --- Animate fishing rod ---
                 if (myCharacter.userData.fishingRodData && autoFishing.spotGroup) {
                     myCharacter.userData.fishingRodData.tugPhase += delta;
-                    const catchProgress = autoFishing.timer / autoFishing.interval; // 0→1
                     
                     const spotPos = autoFishing.spotGroup.position;
                     const waterTarget = new THREE.Vector3(
@@ -1491,6 +1675,13 @@
                         -1.0 + Math.sin(t * 1.5) * 0.05,
                         spotPos.z + Math.cos(t * 0.5) * 0.3
                     );
+
+                    // Sinks deep on bite!
+                    if (autoFishing.state === 'bite') {
+                        waterTarget.y -= 0.3;
+                    } else if (autoFishing.state === 'nibbling') {
+                        waterTarget.y -= 0.08 * (Math.sin(t * 25) > 0 ? 1 : 0); // twitch down
+                    }
 
                     ObjectFactory.animateFishingRod(myCharacter.userData.fishingRodData, myCharacter, waterTarget, t, catchProgress);
                 }
