@@ -2187,83 +2187,142 @@
     }
     
     // --- MOBILE CONTROLS INITIALIZATION ---
-    document.addEventListener("DOMContentLoaded", () => {
-        if (isMobile) {
-            document.getElementById('mobile-controls').style.display = 'block';
-            
-            if (window.nipplejs) {
-                const manager = nipplejs.create({
-                    zone: document.getElementById('joystick-zone'),
-                    mode: 'static',
-                    position: { left: '50%', top: '50%' },
-                    color: 'white',
-                    size: 100
-                });
-                manager.on('move', (evt, data) => {
-                    joystickMoveX = -data.vector.x;
-                    joystickMoveZ = data.vector.y;
-                });
-                manager.on('end', () => {
-                    joystickMoveX = 0;
-                    joystickMoveZ = 0;
-                });
+    function initMobileControls() {
+        if (!isMobile) return;
+        document.getElementById('mobile-controls').style.display = 'block';
+        
+        const manager = nipplejs.create({
+            zone: document.getElementById('joystick-zone'),
+            mode: 'static',
+            position: { left: '50%', bottom: '25%' },
+            color: 'white',
+            size: 120,
+            multitouch: true,
+            maxNumberOfNipples: 1
+        });
+        manager.on('move', (evt, data) => {
+            if (data && data.vector) {
+                joystickMoveX = -data.vector.x;
+                joystickMoveZ = data.vector.y;
             }
+        });
+        manager.on('end', () => {
+            joystickMoveX = 0;
+            joystickMoveZ = 0;
+        });
+        
+        // Absolute fallback to ensure joystick resets when thumb is lifted
+        document.getElementById('joystick-zone').addEventListener('touchend', () => {
+            joystickMoveX = 0;
+            joystickMoveZ = 0;
+        });
+        document.getElementById('joystick-zone').addEventListener('touchcancel', () => {
+            joystickMoveX = 0;
+            joystickMoveZ = 0;
+        });
 
-            let lastTouchX = null, lastTouchY = null;
-            const lookZone = document.getElementById('look-zone');
-            lookZone.addEventListener('touchstart', (e) => {
-                lastTouchX = e.changedTouches[0].pageX;
-                lastTouchY = e.changedTouches[0].pageY;
-            });
-            lookZone.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                if (lastTouchX === null || lastTouchY === null) return;
-                const touch = e.changedTouches[0];
-                const dx = touch.pageX - lastTouchX;
-                const dy = touch.pageY - lastTouchY;
-                lastTouchX = touch.pageX;
-                lastTouchY = touch.pageY;
-                
-                state.camYaw -= dx * 0.005;
-                state.camPitch += dy * 0.005;
-                state.camPitch = Math.max(-1.0, Math.min(1.2, state.camPitch));
-            }, { passive: false });
-            lookZone.addEventListener('touchend', () => {
-                lastTouchX = null; lastTouchY = null;
-            });
+        let lookTouchId = null;
+        let lastTouchX = null, lastTouchY = null;
+        const lookZone = document.getElementById('look-zone');
+        
+        lookZone.addEventListener('touchstart', (e) => {
+            if (lookTouchId !== null) return; // Already tracking a touch
+            const touch = e.changedTouches[0];
+            lookTouchId = touch.identifier;
+            lastTouchX = touch.pageX;
+            lastTouchY = touch.pageY;
+        });
+        lookZone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (lookTouchId === null) return;
+            
+            // Find our specific touch
+            let touch = null;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === lookTouchId) {
+                    touch = e.changedTouches[i];
+                    break;
+                }
+            }
+            if (!touch) return;
+            
+            const dx = touch.pageX - lastTouchX;
+            const dy = touch.pageY - lastTouchY;
+            lastTouchX = touch.pageX;
+            lastTouchY = touch.pageY;
+            
+            state.camYaw -= dx * 0.005;
+            state.camPitch += dy * 0.005;
+            state.camPitch = Math.max(-1.0, Math.min(1.2, state.camPitch));
+        }, { passive: false });
+        
+        const handleTouchEnd = (e) => {
+            if (lookTouchId === null) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === lookTouchId) {
+                    lookTouchId = null;
+                    lastTouchX = null;
+                    lastTouchY = null;
+                    break;
+                }
+            }
+        };
+        lookZone.addEventListener('touchend', handleTouchEnd);
+        lookZone.addEventListener('touchcancel', handleTouchEnd);
 
-            // Mobile Buttons
-            const btnInv = document.getElementById('mobile-btn-inv');
-            const btnDrop = document.getElementById('mobile-btn-drop');
-            const btnChat = document.getElementById('mobile-btn-chat');
-            const btnE = document.getElementById('mobile-btn-e');
-            const btnJump = document.getElementById('mobile-btn-jump');
+        // Mobile Buttons
+        const btnInv = document.getElementById('mobile-btn-inv');
+        const btnDrop = document.getElementById('mobile-btn-drop');
+        const btnChat = document.getElementById('mobile-btn-chat');
+        const btnE = document.getElementById('mobile-btn-e');
+        const btnJump = document.getElementById('mobile-btn-jump');
 
-            btnInv.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                document.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Tab' }));
-            }, {passive: false});
+        btnInv.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            document.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Tab' }));
+        }, {passive: false});
 
-            btnDrop.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                document.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Backspace' }));
-            }, {passive: false});
+        btnDrop.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            document.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Backspace' }));
+        }, {passive: false});
 
-            btnChat.addEventListener('touchstart', (e) => {
-                e.preventDefault();
+        const chatBox = document.getElementById('chat-box');
+        btnChat.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (chatBox.style.display === 'block') {
+                chatBox.style.display = 'none';
+                chatInput.blur();
+            } else {
+                chatBox.style.display = 'block';
                 chatInput.focus();
-            }, {passive: false});
+            }
+        }, {passive: false});
 
-            btnE.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (nearestInteractable && !inventoryOpen) interactWithNearest();
-            }, {passive: false});
+        // Hide chat when user touches the look zone to restore full visibility
+        lookZone.addEventListener('touchstart', (e) => {
+            lastTouchX = e.changedTouches[0].pageX;
+            lastTouchY = e.changedTouches[0].pageY;
+            if (chatBox.style.display === 'block' && document.activeElement !== chatInput) {
+                chatBox.style.display = 'none';
+            }
+        }, { passive: false });
 
-            btnJump.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (state.jumpTime < 0) state.jumpTime = 0;
-            }, {passive: false});
-        }
-    });
+        btnE.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (nearestInteractable && !inventoryOpen) interactWithNearest();
+        }, {passive: false});
+
+        btnJump.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (state.jumpTime < 0) state.jumpTime = 0;
+        }, {passive: false});
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMobileControls);
+    } else {
+        initMobileControls();
+    }
 
 })();

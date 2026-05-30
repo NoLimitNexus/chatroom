@@ -9,11 +9,16 @@ const io = new Server(server, {
     transports: ['websocket', 'polling']
 });
 
-// CORS: allow cross-origin requests (editor on dev can push to prod)
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Disable caching for all static assets and API responses
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
