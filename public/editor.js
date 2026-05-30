@@ -1270,7 +1270,7 @@ function animate() {
     const t = clock.elapsedTime;
 
     if (window.environmentTimeSpeed > 0 && window.environmentTimeOfDay !== undefined) {
-        window.environmentTimeOfDay += window.environmentTimeSpeed * 0.1 * dt;
+        window.environmentTimeOfDay += window.environmentTimeSpeed * dt;
         if (window.environmentTimeOfDay >= 24.0) window.environmentTimeOfDay -= 24.0;
         if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
     }

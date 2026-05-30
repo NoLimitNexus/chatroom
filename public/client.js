@@ -1588,7 +1588,7 @@
         var time = performance.now(), delta = Math.min((time - prevTime) / 1000, 0.1), t = time * 0.001;
 
         if (window.environmentTimeSpeed > 0 && window.environmentTimeOfDay !== undefined) {
-            window.environmentTimeOfDay += window.environmentTimeSpeed * 0.1 * delta;
+            window.environmentTimeOfDay += window.environmentTimeSpeed * delta;
             if (window.environmentTimeOfDay >= 24.0) window.environmentTimeOfDay -= 24.0;
             if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
         }
