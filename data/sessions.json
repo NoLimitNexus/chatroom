@@ -110,5 +110,12 @@
     "duration": 13911,
     "joinTime": 1780173727951,
     "leaveTime": 1780173741862
+  },
+  {
+    "username": "2",
+    "charType": "goop",
+    "duration": 21495195,
+    "joinTime": 1780153128436,
+    "leaveTime": 1780174623631
   }
 ]

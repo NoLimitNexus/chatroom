@@ -406,7 +406,11 @@ function instantiateObject(data) {
 // ============================================================
 // MAP SAVE — pushes to local + production
 // ============================================================
-const PROD_URL = 'https://chatroom.nolimitnexus.com';
+const ENV_URLS = {
+    local: 'http://localhost:3000',
+    dev: 'http://192.168.132.132:3002',
+    live: 'https://chatroom.nolimitnexus.com'
+};
 
 function saveMap() {
     const mapData = {
@@ -431,24 +435,19 @@ function saveMap() {
     const body = JSON.stringify(mapData);
     const headers = { 'Content-Type': 'application/json' };
 
-    // Save to whichever server this editor is served from
-    const localSave = fetch('/api/map', { method: 'POST', headers, body })
-        .then(() => 'local')
-        .catch(() => null);
+    const savePromises = Object.keys(ENV_URLS).map(env => {
+        const url = ENV_URLS[env] + '/api/map';
+        return fetch(url, { method: 'POST', headers, body })
+            .then(res => res.ok ? env : null)
+            .catch(() => null); // Ignore CORS or unreachable errors for environments not available
+    });
 
-    // Save to production NAS
-    const prodSave = fetch(PROD_URL + '/api/map', { method: 'POST', headers, body })
-        .then(() => 'live')
-        .catch(() => null);
-
-    Promise.all([localSave, prodSave]).then(results => {
+    Promise.all(savePromises).then(results => {
         const saved = results.filter(Boolean);
-        if (saved.length === 2) {
-            showNotification('✅ Saved to Local + Live!');
-        } else if (saved.length === 1) {
-            showNotification('⚠️ Saved to ' + saved[0] + ' only');
+        if (saved.length > 0) {
+            showNotification('💾 Saved to: ' + saved.join(', ').toUpperCase());
         } else {
-            showNotification('❌ Save failed!');
+            showNotification('❌ Failed to save map!');
         }
     });
 }
