@@ -181,7 +181,7 @@ syncFromProd(); // Initial sync on startup
 // ----------------------------------------------------
 // AUTO-RETURN BOATS LOGIC (2 MINUTES IDLE)
 // ----------------------------------------------------
-const BOAT_RETURN_TIMEOUT = 120000; // 2 minutes
+const BOAT_RETURN_TIMEOUT = 20000; // 20 seconds
 const BOAT_RETURN_SPEED = 3.0; // meters per sec
 
 setInterval(() => {
