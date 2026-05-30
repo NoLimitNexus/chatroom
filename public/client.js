@@ -47,46 +47,6 @@
     var activeJumpingFish = []; // Animate 3D fish jumping to player's hands
     var inventoryOpen = false; // hidden by default, toggled with Tab
 
-    // Helper to generate a low-poly 3D fish mesh representation
-    // Cached Fish Geometries and Materials to prevent massive lag spikes
-    const sharedFishGeos = {
-        body: null,
-        tail: null,
-        fin: null
-    };
-    const sharedFishMaterials = {};
-    const sharedFishFinMaterials = {};
-
-    function create3DFish(color) {
-        if (!sharedFishGeos.body) {
-            sharedFishGeos.body = new THREE.ConeGeometry(0.12, 0.4, 4);
-            sharedFishGeos.body.rotateX(Math.PI / 2); // Z-aligned
-            sharedFishGeos.tail = new THREE.ConeGeometry(0.08, 0.18, 4);
-            sharedFishGeos.tail.rotateX(Math.PI / 2);
-            sharedFishGeos.fin = new THREE.BoxGeometry(0.015, 0.12, 0.08);
-        }
-        
-        if (!sharedFishMaterials[color]) {
-            sharedFishMaterials[color] = new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.1 });
-            sharedFishFinMaterials[color] = new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.8 });
-        }
-
-        const group = new THREE.Group();
-        
-        const body = new THREE.Mesh(sharedFishGeos.body, sharedFishMaterials[color]);
-        group.add(body);
-        
-        const tail = new THREE.Mesh(sharedFishGeos.tail, sharedFishMaterials[color]);
-        tail.position.z = -0.22;
-        group.add(tail);
-        
-        const fin = new THREE.Mesh(sharedFishGeos.fin, sharedFishFinMaterials[color]);
-        fin.position.y = 0.09;
-        fin.position.z = -0.05;
-        group.add(fin);
-        
-        return group;
-    }
 
     // Auto-fishing & auto-cooking state (mutually exclusive)
     var autoFishing = { active: false, spotGroup: null, state: 'idle', timer: 0, stateDuration: 0 };
@@ -189,8 +149,8 @@
         const item = data.itemData;
         const pickupGroup = new THREE.Group();
         
-        if (typeof create3DFish === 'function') {
-            const fishMesh = create3DFish(item.color || 0xffaa00);
+        if (typeof window.ObjectFactory.create3DFish === 'function') {
+            const fishMesh = window.ObjectFactory.create3DFish(item.color || 0xffaa00);
             fishMesh.scale.set(1.5, 1.5, 1.5);
             pickupGroup.add(fishMesh);
         } else {
@@ -1443,6 +1403,7 @@
     socket.on('playerLeft', function (id) {
         if (players[id]) {
             addChatMessage('System', players[id].userData.username + ' left.', 0xaaaaaa);
+            ObjectFactory.detachFishingRodFromPlayer(players[id].mesh, scene);
             scene.remove(players[id].mesh); players[id].nametag.remove(); delete players[id];
         }
     });
@@ -1497,6 +1458,29 @@
             setTimeout(() => { crosshair.classList.remove('hit'); }, 150);
         }
     });
+    socket.on('playerCaughtFish', function (data) {
+        if (!players[data.id]) return; // Skip if we don't know this player
+        
+        // Ensure ObjectFactory is loaded and ready
+        if (typeof window.ObjectFactory === 'undefined' || typeof window.ObjectFactory.create3DFish !== 'function') return;
+
+        const spotPos = new THREE.Vector3(data.spotPos.x, data.spotPos.y, data.spotPos.z);
+        const playerPos = new THREE.Vector3(data.playerPos.x, data.playerPos.y, data.playerPos.z);
+        
+        // Create 3D fish mesh
+        const fishMesh = window.ObjectFactory.create3DFish(data.color);
+        scene.add(fishMesh);
+        
+        // Add to activeJumpingFish to be animated
+        activeJumpingFish.push({
+            mesh: fishMesh,
+            startPos: spotPos,
+            endPos: playerPos,
+            elapsed: 0,
+            duration: 1.2
+        });
+    });
+
     socket.on('chatMessage', function (d) { addChatMessage(d.username, d.message, d.color); });
 
     function createPlayer(id, data) {
@@ -1675,8 +1659,14 @@
                             const playerPos = myCharacter.position.clone();
                             playerPos.y += 1.0; // hand height
 
+                            socket.emit('playerCaughtFish', { 
+                                color: fishType.color, 
+                                spotPos: { x: spotPos.x, y: spotPos.y, z: spotPos.z }, 
+                                playerPos: { x: playerPos.x, y: playerPos.y, z: playerPos.z }
+                            });
+
                             // Create 3D fish mesh
-                            const fishMesh = create3DFish(fishType.color);
+                            const fishMesh = window.ObjectFactory.create3DFish(fishType.color);
                             scene.add(fishMesh);
                             activeJumpingFish.push({
                                 mesh: fishMesh,

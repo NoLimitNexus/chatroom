@@ -63,7 +63,7 @@ print("Wrote .env (HOST_PORT=3000)")
 
 # Rebuild the docker container (use full path for Synology)
 print("\nRebuilding container...")
-stdin, stdout, stderr = client.exec_command(f'echo 3nchantinG | sudo -S bash -c "cd {remote_dir} && /usr/local/bin/docker compose up -d --build"')
+stdin, stdout, stderr = client.exec_command(f'echo 3nchantinG | sudo -S bash -c "cd {remote_dir} && /usr/local/bin/docker compose build --no-cache && /usr/local/bin/docker compose up -d"')
 print('OUT:', stdout.read().decode())
 print('ERR:', stderr.read().decode())
 

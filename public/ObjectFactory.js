@@ -21,6 +21,41 @@ window.ObjectFactory = {
         'Fence':       { icon: '🏗️', category: 'Structures' }
     },
 
+    sharedFishGeos: {},
+    sharedFishMaterials: {},
+    sharedFishFinMaterials: {},
+
+    create3DFish: function(color) {
+        const _this = window.ObjectFactory;
+        if (!_this.sharedFishGeos.body) {
+            _this.sharedFishGeos.body = new THREE.ConeGeometry(0.12, 0.4, 4);
+            _this.sharedFishGeos.body.rotateX(Math.PI / 2); // Z-aligned
+            _this.sharedFishGeos.tail = new THREE.ConeGeometry(0.08, 0.18, 4);
+            _this.sharedFishGeos.tail.rotateX(Math.PI / 2);
+            _this.sharedFishGeos.fin = new THREE.BoxGeometry(0.015, 0.12, 0.08);
+        }
+        
+        if (!_this.sharedFishMaterials[color]) {
+            _this.sharedFishMaterials[color] = new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.1 });
+            _this.sharedFishFinMaterials[color] = new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.8 });
+        }
+
+        const group = new THREE.Group();
+        const body = new THREE.Mesh(_this.sharedFishGeos.body, _this.sharedFishMaterials[color]);
+        group.add(body);
+        
+        const tail = new THREE.Mesh(_this.sharedFishGeos.tail, _this.sharedFishMaterials[color]);
+        tail.position.z = -0.22;
+        group.add(tail);
+        
+        const fin = new THREE.Mesh(_this.sharedFishGeos.fin, _this.sharedFishFinMaterials[color]);
+        fin.position.y = 0.09;
+        fin.position.z = -0.05;
+        group.add(fin);
+        
+        return group;
+    },
+
     createWoodTexture: function(baseColorHex, stripeColorHex, scale = 1) {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
@@ -244,6 +279,7 @@ window.ObjectFactory = {
 
         // Update fishing line — bezier from rod tip to water
         const tipWorld = new THREE.Vector3();
+        rodData.rodGroup.updateMatrixWorld(true);
         const lastSeg = rodData.segments[rodData.segments.length - 1];
         const tipLocal = new THREE.Vector3(0, 1.8 / rodData.segments.length, 0);
         lastSeg.localToWorld(tipWorld.copy(tipLocal));

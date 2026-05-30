@@ -625,7 +625,16 @@ function createLivePlayer(id, data) {
         isMoving: false, isSprinting: false, isCrouching: false,
         jumpTime: -1, localVx: 0, localVz: 0,
         username: data.username || 'Unknown',
-        userData: { inventory: 0, camPitch: 0, shootTime: 0, useFBX: false }
+        userData: { 
+            inventory: 0, 
+            camPitch: data.camPitch || 0, 
+            camYaw: data.camYaw || 0,
+            shootTime: 0, 
+            useFBX: false,
+            isFishing: data.isFishing || false,
+            isCooking: data.isCooking || false,
+            fishingTarget: data.fishingTarget || null
+        }
     };
     updatePlayerList();
     return livePlayers[id];
@@ -633,6 +642,7 @@ function createLivePlayer(id, data) {
 
 function removeLivePlayer(id) {
     if (!livePlayers[id]) return;
+    if (window.ObjectFactory) window.ObjectFactory.detachFishingRodFromPlayer(livePlayers[id].mesh, scene);
     scene.remove(livePlayers[id].mesh);
     livePlayers[id].mesh.traverse(child => {
         if (child.geometry) child.geometry.dispose();
@@ -735,6 +745,7 @@ socket.on('playerMoved', function(d) {
     p.userData.camPitch = d.camPitch;
     p.userData.isFishing = d.isFishing;
     p.userData.isCooking = d.isCooking;
+    p.userData.fishingTarget = d.fishingTarget;
     p.userData.camYaw = d.camYaw;
 });
 
@@ -776,8 +787,32 @@ socket.on('playerLeft', function(id) {
     }
 });
 
+socket.on('playerCaughtFish', function (data) {
+    if (!livePlayers[data.id]) return; // Skip if we don't know this player
+    
+    // Ensure ObjectFactory is loaded and ready
+    if (typeof window.ObjectFactory === 'undefined' || typeof window.ObjectFactory.create3DFish !== 'function') return;
+
+    const spotPos = new THREE.Vector3(data.spotPos.x, data.spotPos.y, data.spotPos.z);
+    const playerPos = new THREE.Vector3(data.playerPos.x, data.playerPos.y, data.playerPos.z);
+    
+    // Create 3D fish mesh
+    const fishMesh = window.ObjectFactory.create3DFish(data.color);
+    scene.add(fishMesh);
+    
+    // Add to activeJumpingFish to be animated
+    activeJumpingFish.push({
+        mesh: fishMesh,
+        startPos: spotPos,
+        endPos: playerPos,
+        elapsed: 0,
+        duration: 1.2
+    });
+});
+
 // ---- SHOOTING VISUALS IN EDITOR ----
 const editorTracers = [];
+const activeJumpingFish = [];
 
 function editorShootGun(playerObj, shootData) {
     if (!playerObj || !playerObj.mesh) return;
@@ -1113,11 +1148,18 @@ function animate() {
                 if (!p.mesh.userData.fishingRodData) window.ObjectFactory.attachFishingRodToPlayer(p.mesh, scene);
                 if (p.mesh.userData.fishingRodData) {
                     p.mesh.userData.fishingRodData.tugPhase += dt;
-                    const waterTarget = new THREE.Vector3(
-                        p.mesh.position.x + Math.sin(t * 0.5) * 0.3,
-                        -1.0 + Math.sin(t * 1.5) * 0.05,
-                        p.mesh.position.z + 1.0 + Math.cos(t * 0.5) * 0.3
-                    );
+                    let wx, wz;
+                    if (p.userData.fishingTarget) {
+                        wx = p.userData.fishingTarget.x;
+                        wz = p.userData.fishingTarget.z;
+                    } else {
+                        // fallback local offset if missing target
+                        const fVec = new THREE.Vector3(0, 0, 2);
+                        fVec.applyQuaternion(p.mesh.quaternion);
+                        wx = p.mesh.position.x + fVec.x + Math.sin(t * 0.5) * 0.3;
+                        wz = p.mesh.position.z + fVec.z + Math.cos(t * 0.5) * 0.3;
+                    }
+                    const waterTarget = new THREE.Vector3(wx, -1.0 + Math.sin(t * 1.5) * 0.05, wz);
                     const catchProgress = 0.5 + Math.sin(t) * 0.2; 
                     window.ObjectFactory.animateFishingRod(p.mesh.userData.fishingRodData, p.mesh, waterTarget, t, catchProgress);
                 }
@@ -1151,6 +1193,22 @@ function animate() {
             t.mesh.geometry.dispose();
             t.mesh.material.dispose();
             editorTracers.splice(i, 1);
+        }
+    }
+
+    // Update jumping fish animations
+    for (let i = activeJumpingFish.length - 1; i >= 0; i--) {
+        let jf = activeJumpingFish[i];
+        jf.elapsed += dt;
+        if (jf.elapsed >= jf.duration) {
+            scene.remove(jf.mesh);
+            activeJumpingFish.splice(i, 1);
+        } else {
+            let progress = jf.elapsed / jf.duration;
+            jf.mesh.position.lerpVectors(jf.startPos, jf.endPos, progress);
+            let arc = Math.sin(progress * Math.PI) * 2.5; 
+            jf.mesh.position.y += arc;
+            jf.mesh.rotation.x -= 10 * dt;
         }
     }
 

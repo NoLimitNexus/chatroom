@@ -254,6 +254,15 @@ io.on('connection', (socket) => {
         io.emit('itemsDroppedBatch', responseBatch);
     });
 
+    socket.on('playerCaughtFish', (data) => {
+        socket.broadcast.emit('playerCaughtFish', {
+            id: socket.id,
+            color: data.color,
+            spotPos: data.spotPos,
+            playerPos: data.playerPos
+        });
+    });
+
     socket.on('itemPickedUp', (itemId) => {
         if (droppedItemsNetwork[itemId]) {
             delete droppedItemsNetwork[itemId];
@@ -285,6 +294,7 @@ io.on('connection', (socket) => {
             players[socket.id].inventory = movementData.inventory;
             players[socket.id].isFishing = movementData.isFishing;
             players[socket.id].isCooking = movementData.isCooking;
+            players[socket.id].fishingTarget = movementData.fishingTarget;
             players[socket.id].camPitch = movementData.camPitch;
             players[socket.id].camYaw = movementData.camYaw;
             players[socket.id].useFBX = movementData.useFBX;
