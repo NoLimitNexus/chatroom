@@ -900,19 +900,13 @@
     function applyTerrainOffsetsToFloor() {
         if (!floorMesh) return;
         const pos = floorMesh.geometry.attributes.position;
-        const invMat = new THREE.Matrix4().copy(floorMesh.matrixWorld).invert();
-        const vec = new THREE.Vector3();
-
         for (let i = 0; i < pos.count; i++) {
-            vec.fromBufferAttribute(pos, i);
-            vec.applyMatrix4(floorMesh.matrixWorld); // to world space
-            
-            const targetWorldY = window.getSharedTerrainHeight(vec.x, vec.z);
-            vec.y = targetWorldY;
-            
-            vec.applyMatrix4(invMat); // back to local
-            
-            pos.setXYZ(i, vec.x, vec.y, vec.z);
+            const x = pos.getX(i);
+            const y = pos.getY(i);
+            // The plane is rotated -PI/2 on X, so world Z is -local Y.
+            // We query getSharedTerrainHeight using world coordinates (x, -y)
+            const targetWorldY = window.getSharedTerrainHeight(x, -y);
+            pos.setZ(i, targetWorldY);
         }
         pos.needsUpdate = true;
         floorMesh.geometry.computeVertexNormals();
