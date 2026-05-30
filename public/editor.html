@@ -215,11 +215,16 @@
             <button class="btn" id="btn-scale">SCALE</button>
         </div>
 
-        <!-- Object Palette -->
-        <div class="section-title">Place Objects</div>
-        <div class="obj-palette" id="obj-palette">
-            <!-- Populated by JS from ObjectFactory.types -->
-        </div>
+        <!-- 3D Preview floating window -->
+        <div id="preview-3d-container" style="position:fixed; width:200px; height:200px; right: 330px; bottom: 20px; border-radius: 8px; background: rgba(8,10,18,0.9); border: 1px solid rgba(59,130,246,0.5); display:none; z-index:100; pointer-events:none; overflow:hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"></div>
+
+        <!-- Object Palettes -->
+        <div class="section-title">Trees & Foliage</div>
+        <div class="obj-palette" id="palette-Trees"></div>
+        <div class="section-title">Nature</div>
+        <div class="obj-palette" id="palette-Nature"></div>
+        <div class="section-title">Props & Interactive</div>
+        <div class="obj-palette" id="palette-Props"></div>
 
         <!-- Actions -->
         <div class="section-title">Actions</div>
@@ -326,9 +331,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
 
-    <script src="ripples.js?v=25"></script>
-    <script src="campfire.js?v=25"></script>
-    <script src="ObjectFactory.js?v=25"></script>
-    <script src="editor.js?v=25"></script>
+    <script src="ripples.js?v=33"></script>
+    <script src="campfire.js?v=33"></script>
+    <script src="ObjectFactory.js?v=33"></script>
+    <script src="editor.js?v=33"></script>
 </body>
 </html>

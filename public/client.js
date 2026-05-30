@@ -879,7 +879,7 @@
     
     setTimeout(() => {
         scene.traverse(child => {
-            if (child.isMesh && child.geometry && child.geometry.type === 'PlaneGeometry' && child.geometry.parameters.width === 500) {
+            if (child.isMesh && child.geometry && child.geometry.type === 'PlaneGeometry' && child.geometry.parameters.width === 500 && child.geometry.attributes.position.count > 1000) {
                 floorMesh = child;
             }
         });

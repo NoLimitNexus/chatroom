@@ -10,9 +10,14 @@ window.ObjectFactory = {
         'Campfire':    { icon: '🔥', category: 'Lights' },
         'Torch':       { icon: '🕯️', category: 'Lights' },
         'Lantern':     { icon: '💡', category: 'Lights' },
-        'Tree':        { icon: '🌳', category: 'Nature' },
-        'Pine':        { icon: '🌲', category: 'Nature' },
-        'PremiumPine': { icon: '🌲', category: 'Nature' },
+        'Tree':        { icon: '🌳', category: 'Trees' },
+        'Pine':        { icon: '🌲', category: 'Trees' },
+        'PremiumPine': { icon: '🌲', category: 'Trees' },
+        'BirchTree':   { icon: '🌳', category: 'Trees' },
+        'WillowTree':  { icon: '🌿', category: 'Trees' },
+        'AutumnTree':  { icon: '🍂', category: 'Trees' },
+        'DeadTree':    { icon: '🥀', category: 'Trees' },
+        'CherryTree':  { icon: '🌸', category: 'Trees' },
         'Rock':        { icon: '🪨', category: 'Nature' },
         'Bush':        { icon: '🌿', category: 'Nature' },
         'FishingSpot': { icon: '🐟', category: 'Interactive' },
@@ -445,6 +450,142 @@ window.ObjectFactory = {
             t3.position.y = t2.position.y + 1.0;
             t3.castShadow = true; t3.receiveShadow = true;
             group.add(t3);
+            break;
+        }
+
+        // ---- BIRCH TREE ----
+        case 'BirchTree': {
+            group = new THREE.Group();
+            const trunkGeo = new THREE.CylinderGeometry(0.08, 0.12, 2.8, 8);
+            // White with black speckles can be simulated with a light gray and high roughness
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0xdcdcdc, roughness: 1.0 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.4;
+            trunk.castShadow = true;
+            group.add(trunk);
+            // Canopy
+            const canopyMat = new THREE.MeshStandardMaterial({ color: 0x8ba848, roughness: 0.9, flatShading: true });
+            const offsets = [
+                { x: 0, y: 3.2, z: 0, r: 1.0 },
+                { x: 0.4, y: 2.8, z: 0.4, r: 0.8 },
+                { x: -0.5, y: 2.5, z: -0.2, r: 0.85 },
+                { x: 0.2, y: 2.2, z: -0.6, r: 0.75 }
+            ];
+            offsets.forEach(o => {
+                const leafGeo = new THREE.DodecahedronGeometry(o.r, 1);
+                const leaf = new THREE.Mesh(leafGeo, canopyMat);
+                leaf.position.set(o.x, o.y, o.z);
+                leaf.castShadow = true;
+                group.add(leaf);
+            });
+            break;
+        }
+
+        // ---- WILLOW TREE ----
+        case 'WillowTree': {
+            group = new THREE.Group();
+            const trunkGeo = new THREE.CylinderGeometry(0.15, 0.25, 2.0, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.95 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.0;
+            trunk.castShadow = true;
+            group.add(trunk);
+            // Drooping canopy
+            const canopyMat = new THREE.MeshStandardMaterial({ color: 0x4d8a55, roughness: 0.8, flatShading: true });
+            const leafGeo = new THREE.ConeGeometry(0.8, 2.0, 7);
+            const positions = [
+                { x: 0.5, y: 1.8, z: 0.5, rx: 0.3, rz: -0.3 },
+                { x: -0.5, y: 1.7, z: 0.5, rx: 0.3, rz: 0.3 },
+                { x: 0, y: 2.0, z: -0.6, rx: -0.4, rz: 0 },
+                { x: 0, y: 2.4, z: 0, rx: 0, rz: 0 }
+            ];
+            positions.forEach(p => {
+                const leaf = new THREE.Mesh(leafGeo, canopyMat);
+                leaf.position.set(p.x, p.y, p.z);
+                leaf.rotation.set(p.rx, 0, p.rz);
+                leaf.castShadow = true;
+                group.add(leaf);
+            });
+            break;
+        }
+
+        // ---- AUTUMN TREE ----
+        case 'AutumnTree': {
+            group = new THREE.Group();
+            const trunkGeo = new THREE.CylinderGeometry(0.1, 0.18, 2.2, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e12, roughness: 0.9 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.1;
+            trunk.castShadow = true;
+            group.add(trunk);
+            // Orange/Red/Yellow canopy
+            const canopyMat = new THREE.MeshStandardMaterial({ color: 0xd95a2b, roughness: 0.85, flatShading: true });
+            const offsets = [
+                { x: 0, y: 3.0, z: 0, r: 1.2 },
+                { x: 0.6, y: 2.5, z: 0.3, r: 0.9 },
+                { x: -0.4, y: 2.7, z: -0.5, r: 0.8 },
+                { x: -0.6, y: 2.2, z: 0.4, r: 0.85 }
+            ];
+            offsets.forEach(o => {
+                const leafGeo = new THREE.DodecahedronGeometry(o.r, 0);
+                const leaf = new THREE.Mesh(leafGeo, canopyMat);
+                leaf.position.set(o.x, o.y, o.z);
+                leaf.castShadow = true;
+                group.add(leaf);
+            });
+            break;
+        }
+
+        // ---- DEAD TREE ----
+        case 'DeadTree': {
+            group = new THREE.Group();
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d3d3d, roughness: 1.0 });
+            const trunkGeo = new THREE.CylinderGeometry(0.1, 0.15, 2.5, 6);
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.25;
+            trunk.castShadow = true;
+            group.add(trunk);
+            // Branches
+            const branchGeo = new THREE.CylinderGeometry(0.02, 0.06, 1.2, 5);
+            const branches = [
+                { x: 0.3, y: 1.8, z: 0.3, rx: 0.5, rz: -0.5 },
+                { x: -0.4, y: 1.5, z: -0.2, rx: -0.3, rz: 0.6 },
+                { x: -0.2, y: 2.2, z: 0.4, rx: 0.4, rz: 0.2 }
+            ];
+            branches.forEach(b => {
+                const branch = new THREE.Mesh(branchGeo, trunkMat);
+                branch.position.set(b.x, b.y, b.z);
+                branch.rotation.set(b.rx, 0, b.rz);
+                branch.castShadow = true;
+                group.add(branch);
+            });
+            break;
+        }
+
+        // ---- CHERRY BLOSSOM ----
+        case 'CherryTree': {
+            group = new THREE.Group();
+            const trunkGeo = new THREE.CylinderGeometry(0.12, 0.2, 2.0, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x382b23, roughness: 0.95 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.0;
+            trunk.castShadow = true;
+            group.add(trunk);
+            // Pink canopy
+            const canopyMat = new THREE.MeshStandardMaterial({ color: 0xffb7c5, roughness: 0.9, flatShading: true });
+            const offsets = [
+                { x: 0, y: 2.6, z: 0, r: 1.3 },
+                { x: 0.7, y: 2.2, z: 0.4, r: 0.9 },
+                { x: -0.5, y: 2.4, z: -0.6, r: 0.95 },
+                { x: -0.6, y: 2.0, z: 0.5, r: 0.8 }
+            ];
+            offsets.forEach(o => {
+                const leafGeo = new THREE.DodecahedronGeometry(o.r, 1);
+                const leaf = new THREE.Mesh(leafGeo, canopyMat);
+                leaf.position.set(o.x, o.y, o.z);
+                leaf.castShadow = true;
+                group.add(leaf);
+            });
             break;
         }
 

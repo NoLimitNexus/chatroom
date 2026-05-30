@@ -84,7 +84,7 @@ scene.add(terrainBrush);
 // Find floor mesh
 setTimeout(() => {
     scene.traverse(child => {
-        if (child.isMesh && child.geometry && child.geometry.type === 'PlaneGeometry' && child.geometry.parameters.width === 500) {
+        if (child.isMesh && child.geometry && child.geometry.type === 'PlaneGeometry' && child.geometry.parameters.width === 500 && child.geometry.attributes.position.count > 1000) {
             floorMesh = child;
         }
     });
@@ -135,17 +135,94 @@ const chatInput = document.getElementById('editor-chat-input');
 let placementMode = null; // null or type string
 let placementGhost = null; // preview mesh
 
+// 3D Preview Setup
+let previewScene, previewCamera, previewRenderer, previewObj;
+let previewReqId = null;
+
+function initPreview3D() {
+    const container = document.getElementById('preview-3d-container');
+    previewScene = new THREE.Scene();
+    previewScene.background = new THREE.Color(0x1e293b);
+    
+    // Add some nice lighting for the preview
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    previewScene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 5);
+    previewScene.add(dirLight);
+
+    previewCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    previewCamera.position.set(0, 2, 6);
+    previewCamera.lookAt(0, 1, 0);
+
+    previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    previewRenderer.setSize(200, 200);
+    container.appendChild(previewRenderer.domElement);
+}
+
+function showPreview(typeName) {
+    if (!previewScene) initPreview3D();
+    const container = document.getElementById('preview-3d-container');
+    container.style.display = 'block';
+
+    if (previewObj) previewScene.remove(previewObj);
+    
+    const factoryObj = window.ObjectFactory.create(typeName);
+    if (factoryObj && factoryObj.group) {
+        previewObj = factoryObj.group;
+        // Center the object
+        const box = new THREE.Box3().setFromObject(previewObj);
+        const center = box.getCenter(new THREE.Vector3());
+        previewObj.position.sub(center); // center at origin
+        // Lift slightly so bottom is near 0 if it's a tall tree
+        previewObj.position.y += (box.max.y - box.min.y) * 0.2;
+        
+        previewScene.add(previewObj);
+    }
+
+    if (!previewReqId) animatePreview();
+}
+
+function hidePreview() {
+    document.getElementById('preview-3d-container').style.display = 'none';
+    if (previewReqId) {
+        cancelAnimationFrame(previewReqId);
+        previewReqId = null;
+    }
+}
+
+function animatePreview() {
+    previewReqId = requestAnimationFrame(animatePreview);
+    if (previewObj) {
+        previewObj.rotation.y += 0.02;
+    }
+    previewRenderer.render(previewScene, previewCamera);
+}
+
 (function buildPalette() {
-    const palette = document.getElementById('obj-palette');
     if (!window.ObjectFactory || !window.ObjectFactory.types) return;
     const types = window.ObjectFactory.types;
+    
+    const getPalette = (cat) => {
+        if (cat === 'Trees') return document.getElementById('palette-Trees');
+        if (cat === 'Nature') return document.getElementById('palette-Nature');
+        return document.getElementById('palette-Props');
+    };
+
     for (const typeName in types) {
         const info = types[typeName];
+        const palette = getPalette(info.category);
+        if (!palette) continue;
+
         const btn = document.createElement('div');
         btn.className = 'obj-btn';
         btn.dataset.type = typeName;
         btn.innerHTML = `<span class="obj-icon">${info.icon}</span><span class="obj-label">${typeName}</span>`;
         btn.onclick = () => enterPlacementMode(typeName);
+        
+        btn.onmouseenter = () => showPreview(typeName);
+        btn.onmouseleave = () => hidePreview();
+
         palette.appendChild(btn);
     }
 })();
