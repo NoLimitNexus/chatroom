@@ -62,6 +62,60 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 const livePlayers = {};
 
+// ============================================================
+// TERRAIN EDITOR STATE & SETUP
+// ============================================================
+let terrainOffsets = {};
+let floorMesh = null;
+let terrainMode = false;
+let terrainBrushMode = 'raise';
+let terrainBrushSize = 10;
+let terrainBrushStrength = 0.5;
+let isPaintingTerrain = false;
+
+// Brush mesh
+const brushGeo = new THREE.RingGeometry(0, 10, 32);
+const brushMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+const terrainBrush = new THREE.Mesh(brushGeo, brushMat);
+terrainBrush.rotation.x = -Math.PI / 2;
+terrainBrush.visible = false;
+scene.add(terrainBrush);
+
+// Find floor mesh
+setTimeout(() => {
+    scene.traverse(child => {
+        if (child.isMesh && child.geometry && child.geometry.type === 'PlaneGeometry' && child.geometry.parameters.width === 500) {
+            floorMesh = child;
+        }
+    });
+}, 100);
+
+// Setup terrain override
+if (window.getSharedTerrainHeight) {
+    const baseHeight = window.getSharedTerrainHeight;
+    window.getSharedTerrainHeight = function(x, z) {
+        let h = baseHeight(x, z);
+        const rx = Math.round(x);
+        const rz = Math.round(z);
+        const key = `${rx},${rz}`;
+        if (terrainOffsets[key]) h += terrainOffsets[key];
+        return h;
+    };
+}
+
+function applyTerrainOffsetsToFloor() {
+    if (!floorMesh) return;
+    const pos = floorMesh.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = window.getSharedTerrainHeight(x, y);
+        pos.setZ(i, z);
+    }
+    pos.needsUpdate = true;
+    floorMesh.geometry.computeVertexNormals();
+}
+
 // Camera mode: 'free' | 'follow'
 let cameraMode = 'free';
 let followTargetId = null;
@@ -119,10 +173,25 @@ function cancelPlacementMode() {
 const WATER_LEVEL = -1.2;
 
 // Update ghost position on mouse move
-window.addEventListener('mousemove', (event) => {
-    if (!placementMode || !placementGhost) return;
+window.addEventListener('pointermove', (event) => {
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    
+    if (terrainMode && floorMesh) {
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(floorMesh);
+        if (intersects.length > 0) {
+            terrainBrush.visible = true;
+            terrainBrush.position.copy(intersects[0].point);
+            terrainBrush.position.y = window.getSharedTerrainHeight(terrainBrush.position.x, terrainBrush.position.z) + 0.1;
+            if (isPaintingTerrain) paintTerrain();
+        } else {
+            terrainBrush.visible = false;
+        }
+        return;
+    }
+
+    if (!placementMode || !placementGhost) return;
     raycaster.setFromCamera(mouse, camera);
     const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const hitPoint = new THREE.Vector3();
@@ -141,6 +210,13 @@ window.addEventListener('mousemove', (event) => {
             hitPoint.y = window.getSharedTerrainHeight(hitPoint.x, hitPoint.z);
         }
         placementGhost.position.copy(hitPoint);
+    }
+});
+
+window.addEventListener('pointerup', () => {
+    if (terrainMode && isPaintingTerrain) {
+        isPaintingTerrain = false;
+        orbitControls.enabled = true;
     }
 });
 
@@ -188,6 +264,10 @@ function placeObjectAtClick(event) {
 fetch('/api/map')
     .then(res => res.json())
     .then(data => {
+        if (data && data.terrainOffsets) {
+            terrainOffsets = data.terrainOffsets;
+            setTimeout(applyTerrainOffsetsToFloor, 500); // Give shared floor time to create
+        }
         if (data && data.objects) {
             data.objects.forEach(objData => instantiateObject(objData));
             updateObjectList();
@@ -249,6 +329,7 @@ const PROD_URL = 'https://chatroom.nolimitnexus.com';
 
 function saveMap() {
     const mapData = {
+        terrainOffsets,
         objects: environmentObjects.map(obj => {
             const isBoat = obj.userData.type === 'Boat';
             return {
@@ -306,11 +387,21 @@ window.addEventListener('pointerdown', (event) => {
         event.target.closest('#ui-layer') || event.target.closest('#editor-chat') ||
         event.target.closest('.obj-btn') || transformControl.dragging) return;
 
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    if (terrainMode) {
+        if (event.button === 0) {
+            isPaintingTerrain = true;
+            paintTerrain();
+            orbitControls.enabled = false;
+        }
+        return;
+    }
+
     // If in placement mode, place the object and return
     if (placementMode) { placeObjectAtClick(event); return; }
 
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
 
     const testMeshes = [];
@@ -1216,3 +1307,139 @@ function animate() {
     renderer.render(scene, camera);
 }
 animate();
+
+// ============================================================
+// TERRAIN EDITOR UI BINDINGS
+// ============================================================
+
+document.getElementById('tab-editor').addEventListener('click', (e) => {
+    document.getElementById('panel-editor').style.display = 'block';
+    document.getElementById('panel-terrain').style.display = 'none';
+    document.getElementById('panel-admin').style.display = 'none';
+    e.target.style.color = '#fff';
+    e.target.style.borderColor = '#3b82f6';
+    document.getElementById('tab-terrain').style.color = '#94a3b8';
+    document.getElementById('tab-terrain').style.borderColor = 'transparent';
+    document.getElementById('tab-admin').style.color = '#94a3b8';
+    document.getElementById('tab-admin').style.borderColor = 'transparent';
+    terrainMode = false;
+    if (terrainBrush) terrainBrush.visible = false;
+});
+
+document.getElementById('tab-terrain').addEventListener('click', (e) => {
+    document.getElementById('panel-editor').style.display = 'none';
+    document.getElementById('panel-terrain').style.display = 'block';
+    document.getElementById('panel-admin').style.display = 'none';
+    e.target.style.color = '#fff';
+    e.target.style.borderColor = '#10b981';
+    document.getElementById('tab-editor').style.color = '#94a3b8';
+    document.getElementById('tab-editor').style.borderColor = 'transparent';
+    document.getElementById('tab-admin').style.color = '#94a3b8';
+    document.getElementById('tab-admin').style.borderColor = 'transparent';
+    terrainMode = true;
+    selectObject(null);
+    cancelPlacementMode();
+});
+
+document.getElementById('tab-admin').addEventListener('click', (e) => {
+    document.getElementById('panel-editor').style.display = 'none';
+    document.getElementById('panel-terrain').style.display = 'none';
+    document.getElementById('panel-admin').style.display = 'block';
+    e.target.style.color = '#fff';
+    e.target.style.borderColor = '#8b5cf6';
+    document.getElementById('tab-editor').style.color = '#94a3b8';
+    document.getElementById('tab-editor').style.borderColor = 'transparent';
+    document.getElementById('tab-terrain').style.color = '#94a3b8';
+    document.getElementById('tab-terrain').style.borderColor = 'transparent';
+    terrainMode = false;
+    if (terrainBrush) terrainBrush.visible = false;
+});
+
+['raise', 'lower', 'flatten', 'smooth'].forEach(mode => {
+    document.getElementById('brush-' + mode).addEventListener('click', (e) => {
+        ['raise', 'lower', 'flatten', 'smooth'].forEach(m => document.getElementById('brush-' + m).classList.remove('active'));
+        e.target.classList.add('active');
+        terrainBrushMode = mode;
+    });
+});
+
+document.getElementById('brush-size').addEventListener('input', (e) => {
+    terrainBrushSize = parseFloat(e.target.value);
+    document.getElementById('brush-size-val').innerText = terrainBrushSize;
+    if (terrainBrush) {
+        terrainBrush.geometry.dispose();
+        terrainBrush.geometry = new THREE.RingGeometry(0, terrainBrushSize, 32);
+    }
+});
+
+document.getElementById('brush-strength').addEventListener('input', (e) => {
+    terrainBrushStrength = parseFloat(e.target.value);
+    document.getElementById('brush-strength-val').innerText = terrainBrushStrength;
+});
+
+document.getElementById('btn-save-terrain').addEventListener('click', () => {
+    saveMap();
+});
+
+function paintTerrain() {
+    if (!terrainMode || !floorMesh || !isPaintingTerrain) return;
+    
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(floorMesh);
+    if (intersects.length > 0) {
+        const hit = intersects[0].point;
+        const radius = terrainBrushSize;
+        const cx = hit.x;
+        const cz = hit.z;
+        
+        const minX = Math.floor(cx - radius);
+        const maxX = Math.ceil(cx + radius);
+        const minZ = Math.floor(cz - radius);
+        const maxZ = Math.ceil(cz + radius);
+        
+        let avgH = 0;
+        let count = 0;
+        
+        if (terrainBrushMode === 'smooth' || terrainBrushMode === 'flatten') {
+            for (let x = minX; x <= maxX; x++) {
+                for (let z = minZ; z <= maxZ; z++) {
+                    const dist = Math.sqrt((x - cx)**2 + (z - cz)**2);
+                    if (dist <= radius) {
+                        const h = window.getSharedTerrainHeight(x, z);
+                        avgH += h;
+                        count++;
+                    }
+                }
+            }
+            if (count > 0) avgH /= count;
+        }
+        
+        const flattenHeight = avgH;
+
+        for (let x = minX; x <= maxX; x++) {
+            for (let z = minZ; z <= maxZ; z++) {
+                const dist = Math.sqrt((x - cx)**2 + (z - cz)**2);
+                if (dist <= radius) {
+                    const falloff = 1 - (dist / radius); // Linear falloff
+                    const key = `${x},${z}`;
+                    let currentOffset = terrainOffsets[key] || 0;
+                    
+                    let delta = 0;
+                    if (terrainBrushMode === 'raise') delta = terrainBrushStrength * falloff;
+                    else if (terrainBrushMode === 'lower') delta = -terrainBrushStrength * falloff;
+                    else if (terrainBrushMode === 'flatten') {
+                        const h = window.getSharedTerrainHeight(x, z);
+                        delta = (flattenHeight - h) * 0.1 * terrainBrushStrength * falloff;
+                    } else if (terrainBrushMode === 'smooth') {
+                        const h = window.getSharedTerrainHeight(x, z);
+                        delta = (avgH - h) * 0.1 * terrainBrushStrength * falloff;
+                    }
+                    
+                    terrainOffsets[key] = currentOffset + delta;
+                }
+            }
+        }
+        applyTerrainOffsetsToFloor();
+    }
+}
+

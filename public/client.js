@@ -873,12 +873,52 @@
         fishingSpots = [];
         boatObjects = activeBoatGroup ? [activeBoatGroup] : [];
     }
+    
+    let floorMesh = null;
+    let terrainOffsets = {};
+    
+    setTimeout(() => {
+        scene.traverse(child => {
+            if (child.isMesh && child.geometry && child.geometry.type === 'PlaneGeometry' && child.geometry.parameters.width === 500) {
+                floorMesh = child;
+            }
+        });
+    }, 100);
+    
+    if (window.getSharedTerrainHeight) {
+        const baseHeight = window.getSharedTerrainHeight;
+        window.getSharedTerrainHeight = function(x, z) {
+            let h = baseHeight(x, z);
+            const rx = Math.round(x);
+            const rz = Math.round(z);
+            const key = `${rx},${rz}`;
+            if (terrainOffsets[key]) h += terrainOffsets[key];
+            return h;
+        };
+    }
+    
+    function applyTerrainOffsetsToFloor() {
+        if (!floorMesh) return;
+        const pos = floorMesh.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const y = pos.getY(i);
+            const z = window.getSharedTerrainHeight(x, y);
+            pos.setZ(i, z);
+        }
+        pos.needsUpdate = true;
+        floorMesh.geometry.computeVertexNormals();
+    }
 
     function loadMapData() {
         fetch('/api/map')
             .then(res => res.json())
             .then(data => {
                 clearEnvironmentObjects();
+                if (data && data.terrainOffsets) {
+                    terrainOffsets = data.terrainOffsets;
+                    setTimeout(applyTerrainOffsetsToFloor, 500);
+                }
                 if (data && data.objects) {
                     data.objects.forEach(objData => spawnEnvironmentObject(objData));
                 }
@@ -893,6 +933,10 @@
     socket.on('mapUpdate', function(data) {
         console.log('Map updated from server!');
         clearEnvironmentObjects();
+        if (data && data.terrainOffsets) {
+            terrainOffsets = data.terrainOffsets;
+            applyTerrainOffsetsToFloor();
+        }
         if (data && data.objects) {
             data.objects.forEach(objData => spawnEnvironmentObject(objData));
         }
