@@ -2191,38 +2191,93 @@
         if (!isMobile) return;
         document.getElementById('mobile-controls').style.display = 'block';
         
-        const manager = nipplejs.create({
-            zone: document.getElementById('joystick-zone'),
-            mode: 'static',
-            position: { left: '50%', bottom: '25%' },
-            color: 'white',
-            size: 120,
-            multitouch: true,
-            maxNumberOfNipples: 1
+        // Custom zero-dependency joystick to prevent NippleJS multitouch locking bugs
+        const jZone = document.getElementById('joystick-zone');
+        const jBase = document.createElement('div');
+        jBase.style.cssText = 'position:absolute; bottom:25%; left:50%; transform:translate(-50%, 50%); width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.2); border:2px solid rgba(255,255,255,0.5); pointer-events:none;';
+        const jKnob = document.createElement('div');
+        jKnob.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.7); pointer-events:none; transition:transform 0.1s;';
+        jBase.appendChild(jKnob);
+        jZone.appendChild(jBase);
+
+        let joystickTouchId = null;
+        let jBaseCenterX = 0;
+        let jBaseCenterY = 0;
+        const maxDist = 60;
+
+        const forceJoystickReset = () => {
+            joystickTouchId = null;
+            joystickMoveX = 0;
+            joystickMoveZ = 0;
+            jKnob.style.transform = `translate(-50%, -50%)`;
+            jKnob.style.transition = 'transform 0.1s';
+        };
+
+        function updateJoystick(clientX, clientY) {
+            let dx = clientX - jBaseCenterX;
+            let dy = clientY - jBaseCenterY;
+            let dist = Math.hypot(dx, dy);
+            
+            if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+                dist = maxDist;
+            }
+            
+            jKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            jKnob.style.transition = 'none';
+            
+            if (dist < 10) {
+                joystickMoveX = 0;
+                joystickMoveZ = 0;
+            } else {
+                joystickMoveX = -(dx / maxDist);
+                joystickMoveZ = -(dy / maxDist);
+            }
+        }
+
+        jZone.addEventListener('touchstart', (e) => {
+            if (joystickTouchId !== null) return;
+            const touch = e.changedTouches[0];
+            joystickTouchId = touch.identifier;
+            
+            const rect = jBase.getBoundingClientRect();
+            jBaseCenterX = rect.left + rect.width / 2;
+            jBaseCenterY = rect.top + rect.height / 2;
+            
+            updateJoystick(touch.clientX, touch.clientY);
         });
-        manager.on('move', (evt, data) => {
-            if (data && data.vector) {
-                if (data.distance < 10) {
-                    joystickMoveX = 0;
-                    joystickMoveZ = 0;
-                } else {
-                    joystickMoveX = -data.vector.x;
-                    joystickMoveZ = data.vector.y;
+
+        jZone.addEventListener('touchmove', (e) => {
+            if (joystickTouchId === null) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === joystickTouchId) {
+                    e.preventDefault(); // Prevent scrolling only for the joystick touch
+                    updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                    break;
+                }
+            }
+        }, { passive: false });
+
+        jZone.addEventListener('touchend', (e) => {
+            if (joystickTouchId === null) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === joystickTouchId) {
+                    forceJoystickReset();
+                    break;
                 }
             }
         });
-        manager.on('end', () => {
-            joystickMoveX = 0;
-            joystickMoveZ = 0;
-        });
         
-        // Absolute fallback to ensure joystick resets when thumb is lifted
-        const forceJoystickReset = () => {
-            joystickMoveX = 0;
-            joystickMoveZ = 0;
-        };
-        document.getElementById('joystick-zone').addEventListener('touchend', forceJoystickReset);
-        document.getElementById('joystick-zone').addEventListener('touchcancel', forceJoystickReset);
+        jZone.addEventListener('touchcancel', (e) => {
+            if (joystickTouchId === null) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === joystickTouchId) {
+                    forceJoystickReset();
+                    break;
+                }
+            }
+        });
         
         // If ALL fingers are off the screen, guarantee the joystick is reset
         document.addEventListener('touchend', (e) => {
