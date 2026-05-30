@@ -186,9 +186,15 @@
 <body>
 
     <div id="ui-layer">
-        <div class="panel-header">World Editor</div>
-        <div class="panel-sub">WASD to fly • Shift = fast • Scroll = zoom</div>
+        <div class="panel-header" id="main-panel-header">World Editor</div>
+        <div class="panel-sub" id="main-panel-sub">WASD to fly • Shift = fast • Scroll = zoom</div>
 
+        <div style="display:flex; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <div id="tab-editor" style="flex:1; text-align:center; padding: 6px; cursor:pointer; font-size: 0.8rem; border-bottom: 2px solid #3b82f6; font-weight:600; color:#fff; transition:all 0.2s;">Editor</div>
+            <div id="tab-admin" style="flex:1; text-align:center; padding: 6px; cursor:pointer; font-size: 0.8rem; border-bottom: 2px solid transparent; color: #94a3b8; font-weight:600; transition:all 0.2s;">Admin Hub</div>
+        </div>
+
+        <div id="panel-editor">
         <!-- Camera Mode -->
         <div class="section-title">Camera</div>
         <div class="cam-row">
@@ -237,6 +243,34 @@
         <div class="list-box" id="player-list">
             <div style="color:#475569; font-style:italic; font-size:0.75rem;">No players online</div>
         </div>
+        </div> <!-- End of panel-editor -->
+
+        <div id="panel-admin" style="display:none;">
+            <div class="section-title">Server Status <span class="badge badge-green" id="admin-status-badge">Online</span></div>
+            <div class="list-box" style="margin-bottom: 12px; font-family: 'JetBrains Mono', monospace;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Uptime:</span> <strong id="admin-uptime" style="color:#3b82f6">—</strong></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Players Online:</span> <strong id="admin-players" style="color:#10b981">—</strong></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Memory Heap:</span> <strong id="admin-memory" style="color:#06b6d4">—</strong></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Total Unique Users:</span> <strong id="admin-unique-users" style="color:#f59e0b">—</strong></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Total Connections:</span> <strong id="admin-total-connections" style="color:#8b5cf6">—</strong></div>
+            </div>
+
+            <div class="section-title">Session History</div>
+            <div class="list-box" id="admin-session-history" style="max-height: 250px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">
+                <div style="color:#475569; font-style:italic;">Loading...</div>
+            </div>
+
+            <div class="section-title">Quick Actions</div>
+            <div class="action-row">
+                <button class="btn btn-primary" id="btn-admin-refresh" style="width:100%">↻ Refresh Data</button>
+            </div>
+            <div class="action-row">
+                <button class="btn" id="btn-admin-sync" style="width:100%">🔄 Pull from Prod</button>
+            </div>
+            <div class="action-row">
+                <a href="/" target="_blank" class="btn" style="width:100%; text-decoration:none; display:inline-block;">🎮 Play Game</a>
+            </div>
+        </div>
     </div>
 
     <!-- Chat Panel -->
@@ -262,9 +296,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
 
-    <script src="ripples.js?v=22"></script>
-    <script src="campfire.js?v=22"></script>
-    <script src="ObjectFactory.js?v=22"></script>
-    <script src="editor.js?v=22"></script>
+    <script src="ripples.js?v=25"></script>
+    <script src="campfire.js?v=25"></script>
+    <script src="ObjectFactory.js?v=25"></script>
+    <script src="editor.js?v=25"></script>
 </body>
 </html>

@@ -798,7 +798,7 @@ function editorShootGun(playerObj, shootData) {
     flash2.rotation.y = Math.PI / 2;
     const flash = new THREE.Group();
     flash.add(flash1); flash.add(flash2);
-
+    
     const gunObj = (bp && bp.gun) ? bp.gun : (mesh.userData.gun ? mesh.userData.gun : null);
     if (gunObj) {
         if (mesh.userData.blob) {
@@ -852,6 +852,109 @@ function editorShootGun(playerObj, shootData) {
 socket.on('remoteShoot', function(d) {
     if (livePlayers[d.id]) editorShootGun(livePlayers[d.id], d);
 });
+
+// ============================================================
+// ADMIN HUB TABS AND FETCHING
+// ============================================================
+
+document.getElementById('tab-editor').addEventListener('click', () => {
+    document.getElementById('tab-editor').style.borderColor = '#3b82f6';
+    document.getElementById('tab-editor').style.color = '#fff';
+    document.getElementById('tab-admin').style.borderColor = 'transparent';
+    document.getElementById('tab-admin').style.color = '#94a3b8';
+    document.getElementById('panel-editor').style.display = 'block';
+    document.getElementById('panel-admin').style.display = 'none';
+    document.getElementById('main-panel-header').textContent = 'World Editor';
+    document.getElementById('main-panel-sub').textContent = 'WASD to fly • Shift = fast • Scroll = zoom';
+});
+
+document.getElementById('tab-admin').addEventListener('click', () => {
+    document.getElementById('tab-admin').style.borderColor = '#3b82f6';
+    document.getElementById('tab-admin').style.color = '#fff';
+    document.getElementById('tab-editor').style.borderColor = 'transparent';
+    document.getElementById('tab-editor').style.color = '#94a3b8';
+    document.getElementById('panel-admin').style.display = 'block';
+    document.getElementById('panel-editor').style.display = 'none';
+    document.getElementById('main-panel-header').textContent = 'Admin Hub';
+    document.getElementById('main-panel-sub').textContent = 'Server Status & Session Logs';
+    fetchAdminStatus();
+});
+
+document.getElementById('btn-admin-sync').addEventListener('click', () => {
+    document.getElementById('btn-sync').click();
+});
+
+document.getElementById('btn-admin-refresh').addEventListener('click', fetchAdminStatus);
+
+function formatUptime(seconds) {
+    const d = Math.floor(seconds / (3600*24));
+    const h = Math.floor(seconds % (3600*24) / 3600);
+    const m = Math.floor(seconds % 3600 / 60);
+    const s = Math.floor(seconds % 60);
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+}
+
+function fetchAdminStatus() {
+    fetch('/api/status')
+        .then(r => r.json())
+        .then(data => {
+            const statusBadge = document.getElementById('admin-status-badge');
+            statusBadge.textContent = 'Online';
+            statusBadge.className = 'badge badge-green';
+
+            document.getElementById('admin-uptime').textContent = formatUptime(data.uptime);
+            document.getElementById('admin-players').textContent = data.players;
+            document.getElementById('admin-memory').textContent = data.heapMB + ' MB';
+            document.getElementById('admin-unique-users').textContent = data.analytics ? data.analytics.uniqueUsersCount : '—';
+            document.getElementById('admin-total-connections').textContent = data.analytics ? data.analytics.totalConnections : '—';
+
+            const sessionList = document.getElementById('admin-session-history');
+            sessionList.innerHTML = '';
+            
+            // Render currently online players as active sessions
+            if (data.playerList) {
+                data.playerList.forEach(p => {
+                    const duration = Date.now() - (p.joinTime || Date.now());
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between;';
+                    div.innerHTML = `<span style="color:#10b981; font-weight:bold;">🟢 ${p.username}</span> <span>${formatUptime(duration/1000)} (Active)</span>`;
+                    sessionList.appendChild(div);
+                });
+            }
+
+            // Render past sessions (newest first)
+            if (data.sessionHistory && data.sessionHistory.length > 0) {
+                const reversed = [...data.sessionHistory].reverse();
+                reversed.forEach(s => {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; color: #94a3b8;';
+                    const leaveTime = new Date(s.leaveTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    div.innerHTML = `<span>⭕ ${s.username}</span> <span>${formatUptime(s.duration/1000)} (${leaveTime})</span>`;
+                    sessionList.appendChild(div);
+                });
+            } else if (!data.playerList || data.playerList.length === 0) {
+                sessionList.innerHTML = '<div style="color:#475569; font-style:italic;">No recent sessions found.</div>';
+            }
+        })
+        .catch(err => {
+            console.error("Failed to fetch admin status", err);
+            const statusBadge = document.getElementById('admin-status-badge');
+            statusBadge.textContent = 'Offline';
+            statusBadge.className = 'badge badge-red';
+            statusBadge.style.background = 'rgba(239,68,68,0.25)';
+            statusBadge.style.color = '#ef4444';
+        });
+}
+
+// Auto-refresh admin status if tab is active
+setInterval(() => {
+    if (document.getElementById('panel-admin').style.display === 'block') {
+        fetchAdminStatus();
+    }
+}, 5000);
 
 socket.on('chatMessage', function(d) {
     const hex = '#' + d.color.toString(16).padStart(6, '0');

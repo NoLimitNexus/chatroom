@@ -48,27 +48,39 @@
     var inventoryOpen = false; // hidden by default, toggled with Tab
 
     // Helper to generate a low-poly 3D fish mesh representation
+    // Cached Fish Geometries and Materials to prevent massive lag spikes
+    const sharedFishGeos = {
+        body: null,
+        tail: null,
+        fin: null
+    };
+    const sharedFishMaterials = {};
+    const sharedFishFinMaterials = {};
+
     function create3DFish(color) {
+        if (!sharedFishGeos.body) {
+            sharedFishGeos.body = new THREE.ConeGeometry(0.12, 0.4, 4);
+            sharedFishGeos.body.rotateX(Math.PI / 2); // Z-aligned
+            sharedFishGeos.tail = new THREE.ConeGeometry(0.08, 0.18, 4);
+            sharedFishGeos.tail.rotateX(Math.PI / 2);
+            sharedFishGeos.fin = new THREE.BoxGeometry(0.015, 0.12, 0.08);
+        }
+        
+        if (!sharedFishMaterials[color]) {
+            sharedFishMaterials[color] = new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.1 });
+            sharedFishFinMaterials[color] = new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.8 });
+        }
+
         const group = new THREE.Group();
         
-        // Body (tapered cone aligned along Z axis)
-        const bodyGeo = new THREE.ConeGeometry(0.12, 0.4, 4);
-        bodyGeo.rotateX(Math.PI / 2); // Z-aligned
-        const bodyMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.1 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        const body = new THREE.Mesh(sharedFishGeos.body, sharedFishMaterials[color]);
         group.add(body);
         
-        // Tail Fin (small flat box or cone)
-        const tailGeo = new THREE.ConeGeometry(0.08, 0.18, 4);
-        tailGeo.rotateX(Math.PI / 2);
-        const tail = new THREE.Mesh(tailGeo, bodyMat);
+        const tail = new THREE.Mesh(sharedFishGeos.tail, sharedFishMaterials[color]);
         tail.position.z = -0.22;
         group.add(tail);
         
-        // Dorsal Fin
-        const finGeo = new THREE.BoxGeometry(0.015, 0.12, 0.08);
-        const finMat = new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.8 });
-        const fin = new THREE.Mesh(finGeo, finMat);
+        const fin = new THREE.Mesh(sharedFishGeos.fin, sharedFishFinMaterials[color]);
         fin.position.y = 0.09;
         fin.position.z = -0.05;
         group.add(fin);
@@ -170,22 +182,45 @@
     // Cached Geometries to prevent lag on item spawn
     const sharedDroppedGeo = new THREE.SphereGeometry(0.2, 10, 10);
     const sharedDroppedHaloGeo = new THREE.SphereGeometry(0.35, 10, 10);
+    const sharedDroppedMaterials = {};
+    const sharedHaloMaterials = {};
 
     function spawnDroppedItem(data) {
         const item = data.itemData;
         const pickupGroup = new THREE.Group();
-        // Glowing sphere
-        const mat = new THREE.MeshStandardMaterial({
-            color: item.color, emissive: item.color, emissiveIntensity: 1.5,
-            transparent: true, opacity: 0.85, roughness: 0.2
-        });
-        const sphere = new THREE.Mesh(sharedDroppedGeo, mat);
-        pickupGroup.add(sphere);
-        // Halo
-        const haloMat = new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: 0.15 });
-        pickupGroup.add(new THREE.Mesh(sharedDroppedHaloGeo, haloMat));
+        
+        if (typeof create3DFish === 'function') {
+            const fishMesh = create3DFish(item.color || 0xffaa00);
+            fishMesh.scale.set(1.5, 1.5, 1.5);
+            pickupGroup.add(fishMesh);
+        } else {
+            if (!sharedDroppedMaterials[item.color]) {
+                sharedDroppedMaterials[item.color] = new THREE.MeshStandardMaterial({
+                    color: item.color, emissive: item.color, emissiveIntensity: 1.5,
+                    transparent: true, opacity: 0.85, roughness: 0.2
+                });
+                sharedHaloMaterials[item.color] = new THREE.MeshBasicMaterial({ 
+                    color: item.color, transparent: true, opacity: 0.15 
+                });
+            }
+            const sphere = new THREE.Mesh(sharedDroppedGeo, sharedDroppedMaterials[item.color]);
+            pickupGroup.add(sphere);
+            pickupGroup.add(new THREE.Mesh(sharedDroppedHaloGeo, sharedHaloMaterials[item.color]));
+        }
         
         pickupGroup.position.set(data.position.x, data.position.y, data.position.z);
+        
+        // Setup simple physics for drop animation
+        pickupGroup.userData.vy = 4.0 + Math.random() * 2.0;
+        pickupGroup.userData.vx = (Math.random() - 0.5) * 4.0;
+        pickupGroup.userData.vz = (Math.random() - 0.5) * 4.0;
+        pickupGroup.userData.rotationSpeed = new THREE.Vector3(
+            (Math.random() - 0.5) * 15,
+            (Math.random() - 0.5) * 15,
+            (Math.random() - 0.5) * 15
+        );
+        pickupGroup.userData.isAnimating = true;
+
         pickupGroup.userData.droppedItem = item;
         pickupGroup.userData.itemId = data.itemId;
         pickupGroup.userData.spawnTime = performance.now() * 0.001;
@@ -215,15 +250,28 @@
         if (dropAllBtn) {
             dropAllBtn.addEventListener('click', function() {
                 let droppedCount = 0;
+                let droppedBatch = [];
                 for (let i = 0; i < 20; i++) {
-                    if (playerItems[i]) {
-                        dropItemOnGround(i, true, true);
+                    const item = playerItems[i];
+                    if (item) {
+                        playerItems[i] = null;
                         droppedCount++;
+                        const dropPos = myCharacter.position.clone();
+                        const fwd = new THREE.Vector3(
+                            (Math.random() - 0.5) * 0.8, 
+                            0, 
+                            1 + (Math.random() - 0.5) * 0.5
+                        ).applyAxisAngle(new THREE.Vector3(0, 1, 0), myCharacter.rotation.y);
+                        dropPos.addScaledVector(fwd, 1.5 + Math.random());
+                        dropPos.y = getTerrainHeight(dropPos.x, dropPos.z) + 0.3;
+                        
+                        droppedBatch.push({ itemData: item, position: { x: dropPos.x, y: dropPos.y, z: dropPos.z } });
                     }
                 }
                 if (droppedCount > 0) {
                     updateInventoryUI();
                     addChatMessage('System', `Dropped all items (${droppedCount} item(s)).`, 0xffaa00);
+                    socket.emit('itemsDroppedBatch', droppedBatch);
                 }
             });
         }
@@ -1356,6 +1404,14 @@
         spawnDroppedItem(data);
     });
 
+    socket.on('itemsDroppedBatch', function(batch) {
+        batch.forEach(data => {
+            if (!droppedItems.some(i => i.userData.itemId === data.itemId)) {
+                spawnDroppedItem(data);
+            }
+        });
+    });
+
     socket.on('itemPickedUp', function(itemId) {
         const idx = droppedItems.findIndex(p => p.userData.itemId === itemId);
         if (idx > -1) {
@@ -1684,6 +1740,13 @@
                         spotPos.z + Math.cos(t * 0.5) * 0.3
                     );
 
+                    // Turn player to face the fishing spot smoothly
+                    const targetAngle = Math.atan2(spotPos.x - myCharacter.position.x, spotPos.z - myCharacter.position.z);
+                    let diff = targetAngle - myCharacter.rotation.y;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    myCharacter.rotation.y += diff * 5.0 * delta;
+
                     // Sinks deep on bite!
                     if (autoFishing.state === 'bite') {
                         waterTarget.y -= 0.3;
@@ -1703,6 +1766,13 @@
                 autoCooking.active = false;
                 addChatMessage('System', 'Stopped cooking.', 0xff9800);
             } else {
+                // Turn player to face the campfire smoothly
+                const targetAngle = Math.atan2(autoCooking.campfireGroup.position.x - myCharacter.position.x, autoCooking.campfireGroup.position.z - myCharacter.position.z);
+                let diff = targetAngle - myCharacter.rotation.y;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                myCharacter.rotation.y += diff * 5.0 * delta;
+
                 autoCooking.timer += delta;
                 if (autoCooking.timer >= autoCooking.interval) {
                     autoCooking.timer = 0;
@@ -1720,11 +1790,32 @@
             lastInteractionCheckTime = time;
         }
         droppedItems.forEach(pickup => {
-            const age = t - pickup.userData.spawnTime;
-            pickup.position.y = getTerrainHeight(pickup.position.x, pickup.position.z) + 0.3 + Math.sin(age * 2.0) * 0.1;
-            pickup.rotation.y += delta * 1.5;
-            // Pulse halo
-            if (pickup.children[1]) pickup.children[1].scale.setScalar(1.0 + Math.sin(age * 3) * 0.2);
+            if (pickup.userData.isAnimating) {
+                pickup.userData.vy -= 15.0 * delta; // Gravity
+                pickup.position.x += pickup.userData.vx * delta;
+                pickup.position.y += pickup.userData.vy * delta;
+                pickup.position.z += pickup.userData.vz * delta;
+                pickup.rotation.x += pickup.userData.rotationSpeed.x * delta;
+                pickup.rotation.y += pickup.userData.rotationSpeed.y * delta;
+                pickup.rotation.z += pickup.userData.rotationSpeed.z * delta;
+                
+                const gHeight = getTerrainHeight(pickup.position.x, pickup.position.z);
+                if (pickup.position.y <= gHeight + 0.1) {
+                    pickup.position.y = gHeight + 0.1;
+                    pickup.userData.vy *= -0.5; // bounce
+                    pickup.userData.vx *= 0.6; // friction
+                    pickup.userData.vz *= 0.6;
+                    pickup.userData.rotationSpeed.multiplyScalar(0.6);
+                    
+                    if (Math.abs(pickup.userData.vy) < 0.5) {
+                        pickup.userData.isAnimating = false;
+                        pickup.rotation.set(0, Math.random() * Math.PI * 2, Math.PI / 2); // lay flat
+                    }
+                }
+            } else {
+                // Keep it on the terrain if terrain changes underneath
+                pickup.position.y = getTerrainHeight(pickup.position.x, pickup.position.z) + 0.1;
+            }
         });
 
         // --- VFX ORBS (glowing with light trail) ---

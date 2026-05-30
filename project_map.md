@@ -4,7 +4,8 @@
 
 | Server | URL | Purpose |
 |--------|-----|---------|
-| **Development** | `http://localhost:3000` | Your PC — active coding & testing |
+| **Localhost** | `http://localhost:3000` | Local machine — active coding & instant updates |
+| **Staging** | `http://192.168.132.132:3002` | Optiplex — tests Docker/Network before Live |
 | **Live** | `https://chatroom.nolimitnexus.com` | NAS → Cloudflare Tunnel — the real game |
 
 > Local server auto-syncs map data from Live every 30 seconds.
@@ -25,13 +26,19 @@
 ## Bookmark These
 
 ```
-DEVELOPMENT:
+LOCALHOST (For active coding & instant updates):
   http://localhost:3000/            ← Game
   http://localhost:3000/editor.html ← Editor
   http://localhost:3000/studio.html ← Goop Lab
   http://localhost:3000/hub.html    ← Hub
 
-LIVE:
+STAGING / DEV (Optiplex - For testing Docker before Live):
+  http://192.168.132.132:3002/            ← Game
+  http://192.168.132.132:3002/editor.html ← Editor
+  http://192.168.132.132:3002/studio.html ← Goop Lab
+  http://192.168.132.132:3002/hub.html    ← Hub
+
+LIVE (NAS - Production):
   https://chatroom.nolimitnexus.com/            ← Game
   https://chatroom.nolimitnexus.com/editor.html ← Editor
   https://chatroom.nolimitnexus.com/studio.html ← Goop Lab

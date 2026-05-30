@@ -61,14 +61,19 @@ app.get('/api/status', (req, res) => {
     res.json({
         uptime: process.uptime(),
         players: Object.keys(players).length,
-        playerList: Object.values(players).map(p => ({ username: p.username, charType: p.charType })),
+        playerList: Object.values(players).map(p => ({ username: p.username, charType: p.charType, joinTime: p.joinTime })),
         mapObjects: mapData.objects ? mapData.objects.length : 0,
         droppedItems: Object.keys(droppedItemsNetwork).length,
         memoryMB: Math.round(mem.rss / 1024 / 1024),
         heapMB: Math.round(mem.heapUsed / 1024 / 1024),
         nodeVersion: process.version,
         env: process.env.NODE_ENV || 'development',
-        connectedSockets: io.sockets.sockets.size
+        connectedSockets: io.sockets.sockets.size,
+        analytics: {
+            totalConnections: analytics.totalConnections,
+            uniqueUsersCount: Object.keys(analytics.uniqueUsers).length
+        },
+        sessionHistory: sessionHistory.slice(-50)
     });
 });
 
@@ -130,10 +135,42 @@ if (fs.existsSync(ITEMS_FILE)) {
         console.error("Error reading droppedItems.json", e);
     }
 }
+let saveDroppedItemsTimeout = null;
 function saveDroppedItems() {
-    fs.writeFile(ITEMS_FILE, JSON.stringify(droppedItemsNetwork, null, 2), (err) => {
-        if (err) console.error("Error writing droppedItems.json", err);
-    });
+    if (saveDroppedItemsTimeout) return;
+    saveDroppedItemsTimeout = setTimeout(() => {
+        fs.writeFile(ITEMS_FILE, JSON.stringify(droppedItemsNetwork, null, 2), (err) => {
+            if (err) console.error("Error writing droppedItems.json", err);
+        });
+        saveDroppedItemsTimeout = null;
+    }, 500);
+}
+
+// Store sessions and analytics
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+let sessionHistory = [];
+if (fs.existsSync(SESSIONS_FILE)) {
+    try {
+        sessionHistory = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    } catch (e) {
+        console.error("Error reading sessions.json", e);
+    }
+}
+function saveSessions() {
+    fs.writeFile(SESSIONS_FILE, JSON.stringify(sessionHistory.slice(-100), null, 2), (err) => {});
+}
+
+const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
+let analytics = { totalConnections: 0, uniqueUsers: {} };
+if (fs.existsSync(ANALYTICS_FILE)) {
+    try {
+        analytics = JSON.parse(fs.readFileSync(ANALYTICS_FILE, 'utf8'));
+    } catch (e) {
+        console.error("Error reading analytics.json", e);
+    }
+}
+function saveAnalytics() {
+    fs.writeFile(ANALYTICS_FILE, JSON.stringify(analytics, null, 2), (err) => {});
 }
 
 function scheduleItemExpiration(itemId) {
@@ -170,8 +207,12 @@ io.on('connection', (socket) => {
             color: Math.floor(Math.random() * 0xffffff),
             username: 'Guest_' + Math.floor(Math.random() * 1000),
             charType: 'modular', // default character type
-            inventory: 0 // Default to hands (no gun)
+            inventory: 0, // Default to hands (no gun)
+            joinTime: Date.now()
         };
+
+        analytics.totalConnections++;
+        saveAnalytics();
 
         // Support both old string format and new object format
         if (typeof data === 'string') {
@@ -186,6 +227,11 @@ io.on('connection', (socket) => {
         // Tell everyone else about the new player
         socket.broadcast.emit('playerJoined', { id: socket.id, ...players[socket.id] });
         console.log(`${players[socket.id].username} joined as ${players[socket.id].charType}`);
+
+        if (players[socket.id].username && !players[socket.id].username.startsWith('Guest_')) {
+            analytics.uniqueUsers[players[socket.id].username] = (analytics.uniqueUsers[players[socket.id].username] || 0) + 1;
+            saveAnalytics();
+        }
     });
 
     socket.on('itemDropped', (data) => {
@@ -194,6 +240,18 @@ io.on('connection', (socket) => {
         saveDroppedItems();
         io.emit('itemDropped', droppedItemsNetwork[itemId]);
         scheduleItemExpiration(itemId);
+    });
+
+    socket.on('itemsDroppedBatch', (batch) => {
+        const responseBatch = [];
+        batch.forEach(data => {
+            const itemId = 'item_' + itemCounter++;
+            droppedItemsNetwork[itemId] = { ...data, itemId };
+            responseBatch.push(droppedItemsNetwork[itemId]);
+            scheduleItemExpiration(itemId);
+        });
+        saveDroppedItems();
+        io.emit('itemsDroppedBatch', responseBatch);
     });
 
     socket.on('itemPickedUp', (itemId) => {
@@ -303,6 +361,19 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`Player disconnected: ${socket.id}`);
         io.emit('playerLeft', socket.id);
+        
+        if (players[socket.id] && players[socket.id].joinTime) {
+            let duration = Date.now() - players[socket.id].joinTime;
+            sessionHistory.push({
+                username: players[socket.id].username,
+                charType: players[socket.id].charType,
+                duration: duration,
+                joinTime: players[socket.id].joinTime,
+                leaveTime: Date.now()
+            });
+            saveSessions();
+        }
+        
         delete players[socket.id];
     });
 });

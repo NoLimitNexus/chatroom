@@ -13,6 +13,7 @@ files_to_upload = [
     'package.json',
     'package-lock.json',
     'server.js',
+    'data/map.json',
     'public/client.js',
     'public/index.html',
     'public/style.css',
@@ -29,8 +30,9 @@ files_to_upload = [
 
 remote_dir = '/var/services/homes/nolimitnexus/steam_chatroom'
 
-# Ensure public dir exists
+# Ensure public and data dirs exist
 client.exec_command(f'mkdir -p {remote_dir}/public')
+client.exec_command(f'mkdir -p {remote_dir}/data')
 
 for file in files_to_upload:
     local_path = os.path.join(os.getcwd(), file)
@@ -64,5 +66,13 @@ print("\nRebuilding container...")
 stdin, stdout, stderr = client.exec_command(f'echo 3nchantinG | sudo -S bash -c "cd {remote_dir} && /usr/local/bin/docker compose up -d --build"')
 print('OUT:', stdout.read().decode())
 print('ERR:', stderr.read().decode())
+
+# Copy map.json into the container volume and restart
+print("Syncing map.json to container volume and restarting...")
+client.exec_command(f'echo 3nchantinG | sudo -S /usr/local/bin/docker cp {remote_dir}/data/map.json steam_chatroom:/data/map.json')
+stdin, stdout, stderr = client.exec_command(f'echo 3nchantinG | sudo -S /usr/local/bin/docker compose -f {remote_dir}/docker-compose.yml restart')
+print('RESTART OUT:', stdout.read().decode())
+print('RESTART ERR:', stderr.read().decode())
+
 client.close()
 print("Done!")

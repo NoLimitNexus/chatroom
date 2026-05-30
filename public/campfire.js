@@ -5,7 +5,7 @@ window.Campfire = class Campfire {
     constructor() {
         this.group = new THREE.Group();
         this.particles = [];
-        this.maxParticles = 15000;
+        this.maxParticles = 200; // Drastically reduced for performance
         
         // Define presets
         this.presets = {
@@ -172,10 +172,7 @@ window.Campfire = class Campfire {
         // Light
         this.light = new THREE.PointLight(0xffaa33, 3, 12);
         this.light.position.y = 0.8;
-        this.light.castShadow = true;
-        this.light.shadow.bias = -0.0001;
-        this.light.shadow.mapSize.width = 512;
-        this.light.shadow.mapSize.height = 512;
+        this.light.castShadow = false; // Disabled to save extreme performance drop
         this.group.add(this.light);
     }
 

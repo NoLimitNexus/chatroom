@@ -352,3 +352,65 @@ canvas {
     color: #fff;
     border-color: rgba(255,255,255,0.3);
 }
+
+/* ============================
+   MOBILE RESPONSIVENESS
+   ============================ */
+@media (max-width: 768px) {
+    #login-panel {
+        width: 90%;
+        min-width: 0;
+        padding: 15px;
+    }
+    
+    #welcome-panel {
+        width: 90%;
+        padding: 15px;
+    }
+    
+    #chat-box {
+        width: 100%;
+        left: 0;
+        bottom: 0;
+        padding: 0;
+        border-radius: 0;
+        pointer-events: none;
+    }
+    
+    #chat-messages {
+        height: 150px;
+        border-radius: 0;
+        font-size: 12px;
+        opacity: 0.8;
+    }
+    
+    #chat-input {
+        border-radius: 0;
+        padding: 10px;
+    }
+
+    #inventory-ui {
+        width: 95% !important;
+        left: 2.5%;
+        right: auto !important;
+        bottom: 110px !important;
+        font-size: 10px;
+        z-index: 600;
+    }
+
+    #inventory-grid {
+        grid-template-columns: repeat(5, 1fr) !important;
+    }
+    
+    .inv-slot {
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1;
+    }
+
+    #marching-panel {
+        transform: scale(0.8);
+        transform-origin: top right;
+    }
+}
+

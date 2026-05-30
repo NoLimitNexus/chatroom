@@ -305,18 +305,11 @@ window.ObjectFactory = {
             const flame = new THREE.Mesh(flameGeo, flameMat);
             flame.position.y = 1.52;
             group.add(flame);
-            // Point light
-            const light = new THREE.PointLight(0xff6600, 2, 8);
-            light.position.y = 1.5;
-            group.add(light);
+            
             // Flickering updatable
             updatable = {
                 _flame: flame,
-                _light: light,
-                _baseIntensity: 2,
                 update: function(dt) {
-                    const flicker = 1.5 + Math.sin(Date.now() * 0.01) * 0.4 + Math.sin(Date.now() * 0.023) * 0.3;
-                    this._light.intensity = flicker;
                     this._flame.scale.setScalar(0.8 + Math.sin(Date.now() * 0.015) * 0.3);
                 }
             };
@@ -498,9 +491,8 @@ window.ObjectFactory = {
             group.add(base);
             // Glass body
             const glassGeo = new THREE.CylinderGeometry(0.08, 0.1, 0.25, 8);
-            const glassMat = new THREE.MeshPhysicalMaterial({
-                color: 0xffdd88, roughness: 0.1, metalness: 0,
-                transparent: true, opacity: 0.4, emissive: 0xffaa44, emissiveIntensity: 0.5
+            const glassMat = new THREE.MeshBasicMaterial({
+                color: 0xffaa44, transparent: true, opacity: 0.6
             });
             const glass = new THREE.Mesh(glassGeo, glassMat);
             glass.position.y = 0.19;
@@ -515,18 +507,12 @@ window.ObjectFactory = {
             const handle = new THREE.Mesh(handleGeo, metalMat);
             handle.position.y = 0.4;
             group.add(handle);
-            // Light
-            const lanternLight = new THREE.PointLight(0xffaa44, 1.5, 6);
-            lanternLight.position.y = 0.2;
-            group.add(lanternLight);
+            
             // Flicker
             updatable = {
-                _light: lanternLight,
                 _glass: glass,
                 update: function(dt) {
-                    const f = 1.2 + Math.sin(Date.now() * 0.008) * 0.3 + Math.sin(Date.now() * 0.019) * 0.2;
-                    this._light.intensity = f;
-                    this._glass.material.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.01) * 0.2;
+                    this._glass.material.opacity = 0.5 + Math.sin(Date.now() * 0.01) * 0.2;
                 }
             };
             break;
@@ -537,9 +523,7 @@ window.ObjectFactory = {
             group = new THREE.Group();
             group.userData.interactable = true;
             group.userData.action = 'fishing';
-            const spotLight = new THREE.PointLight(0x4fc3f7, 1.5, 5);
-            spotLight.position.set(0, 0.5, 0);
-            group.add(spotLight);
+            
             // Ring indicator — hidden by default, shown on targeting
             const ringGeo = new THREE.RingGeometry(0.6, 0.8, 24);
             const ringMat = new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
@@ -550,12 +534,17 @@ window.ObjectFactory = {
             ring.userData._isRing = true;
             group.add(ring);
             group.userData.ring = ring;
-            // Bubbles — use initialX/initialZ/amp to match game loop
+            
+            // Cache bubbles geometry and material to save RAM
+            const c = window.ObjectFactory._cache;
+            if (!c.bubbleGeo) c.bubbleGeo = new THREE.SphereGeometry(0.05, 8, 8);
+            if (!c.bubbleMat) c.bubbleMat = new THREE.MeshBasicMaterial({ color: 0xe0f7fa, transparent: true, opacity: 0.7 });
+            
+            // Bubbles
             const bubbles = [];
-            const bubbleGeo = new THREE.SphereGeometry(0.05, 8, 8);
-            const bubbleMat = new THREE.MeshStandardMaterial({ color: 0xe0f7fa, transparent: true, opacity: 0.7, roughness: 0.2 });
-            for (let i = 0; i < 20; i++) {
-                const bubble = new THREE.Mesh(bubbleGeo, bubbleMat.clone());
+            for (let i = 0; i < 4; i++) {
+                // Must clone material because opacity is animated individually per bubble
+                const bubble = new THREE.Mesh(c.bubbleGeo, c.bubbleMat.clone());
                 const r = 0.8 * Math.sqrt(Math.random());
                 const theta = Math.random() * 2 * Math.PI;
                 bubble.position.set(r * Math.cos(theta), 0.0, r * Math.sin(theta));
@@ -571,19 +560,20 @@ window.ObjectFactory = {
                 bubbles.push(bubble);
             }
             group.userData.bubbles = bubbles;
+            
             // Hit cylinder for raycasting in game
             const fsHitGeo = new THREE.CylinderGeometry(1.5, 1.5, 2.0, 8);
             const fsHitMat = new THREE.MeshBasicMaterial({ visible: false });
             const fsHit = new THREE.Mesh(fsHitGeo, fsHitMat);
             fsHit.position.y = 1.0;
-            fsHit.userData = group.userData;
+            fsHit.userData.interactable = true;
+            fsHit.userData.action = 'fishing';
             fsHit.userData.parentGroup = group;
             group.add(fsHit);
+            
             updatable = {
-                _light: spotLight,
                 _bubbles: bubbles,
                 update: function(t, dt) {
-                    this._light.intensity = 1.2 + Math.sin(t * 3) * 0.4;
                     this._bubbles.forEach(b => {
                         if (b.userData.popping) {
                             b.scale.addScalar(dt * 8.0);
@@ -619,26 +609,31 @@ window.ObjectFactory = {
             group.userData.action = 'boat';
             group.userData.type = 'Boat';
 
-            const woodTex = window.ObjectFactory.createWoodTexture('#8B6914', '#5A3E10', 1);
-            const woodBump = window.ObjectFactory.createWoodBumpMap(1);
-            const darkWoodTex = window.ObjectFactory.createWoodTexture('#5C4010', '#3D280A', 1);
-            const darkWoodBump = window.ObjectFactory.createWoodBumpMap(1);
+            const c = window.ObjectFactory._cache;
+            if (!c.boatWoodMat) {
+                const woodTex = window.ObjectFactory.createWoodTexture('#8B6914', '#5A3E10', 1);
+                const woodBump = window.ObjectFactory.createWoodBumpMap(1);
+                const darkWoodTex = window.ObjectFactory.createWoodTexture('#5C4010', '#3D280A', 1);
+                const darkWoodBump = window.ObjectFactory.createWoodBumpMap(1);
 
-            const woodMat = new THREE.MeshStandardMaterial({
-                map: woodTex,
-                bumpMap: woodBump,
-                bumpScale: 0.02,
-                roughness: 0.8,
-                metalness: 0.1
-            });
-            const darkWoodMat = new THREE.MeshStandardMaterial({
-                map: darkWoodTex,
-                bumpMap: darkWoodBump,
-                bumpScale: 0.02,
-                roughness: 0.85,
-                metalness: 0.05
-            });
-            const metalMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.4, metalness: 0.7 });
+                c.boatWoodMat = new THREE.MeshStandardMaterial({
+                    map: woodTex, bumpMap: woodBump, bumpScale: 0.02, roughness: 0.8, metalness: 0.1
+                });
+                c.boatDarkWoodMat = new THREE.MeshStandardMaterial({
+                    map: darkWoodTex, bumpMap: darkWoodBump, bumpScale: 0.02, roughness: 0.85, metalness: 0.05
+                });
+                c.boatMetalMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.4, metalness: 0.7 });
+                
+                const oarBladeTex = window.ObjectFactory.createWoodTexture('#6B4226', '#4A2A18', 1);
+                c.oarBladeMat = new THREE.MeshStandardMaterial({
+                    map: oarBladeTex, roughness: 0.8
+                });
+            }
+
+            const woodMat = c.boatWoodMat;
+            const darkWoodMat = c.boatDarkWoodMat;
+            const metalMat = c.boatMetalMat;
+            const oarBladeMat = c.oarBladeMat;
 
             const visualGroup = new THREE.Group();
             visualGroup.rotation.y = Math.PI / 2;
@@ -648,15 +643,20 @@ window.ObjectFactory = {
             const bottomGeo = new THREE.BoxGeometry(2.6, 0.12, 1.0);
             const bottom = new THREE.Mesh(bottomGeo, darkWoodMat);
             bottom.position.y = 0.0;
-            bottom.receiveShadow = true;
             visualGroup.add(bottom);
+
+            // False floor (raised inside to physically block water from showing through)
+            // Water max height relative to boat is ~0.10. Placing this at 0.12 hides the water completely.
+            const falseFloorGeo = new THREE.BoxGeometry(2.5, 0.06, 0.9);
+            const falseFloor = new THREE.Mesh(falseFloorGeo, darkWoodMat);
+            falseFloor.position.y = 0.12; 
+            visualGroup.add(falseFloor);
 
             // Side walls
             const sideGeo = new THREE.BoxGeometry(2.6, 0.4, 0.08);
             [-0.48, 0.48].forEach(z => {
                 const side = new THREE.Mesh(sideGeo, woodMat);
                 side.position.set(0, 0.24, z);
-                side.castShadow = true;
                 visualGroup.add(side);
             });
 
@@ -664,25 +664,13 @@ window.ObjectFactory = {
             const bowGeo = new THREE.BoxGeometry(0.08, 0.4, 1.04);
             const bow = new THREE.Mesh(bowGeo, woodMat);
             bow.position.set(1.26, 0.24, 0);
-            bow.castShadow = true;
             visualGroup.add(bow);
-
-
 
             // Stern (back)
             const sternGeo = new THREE.BoxGeometry(0.08, 0.5, 1.04);
             const stern = new THREE.Mesh(sternGeo, woodMat);
             stern.position.set(-1.26, 0.27, 0);
-            stern.castShadow = true;
             visualGroup.add(stern);
-
-            // Plank details on hull bottom
-            for (let i = -2; i <= 2; i++) {
-                const plankGeo = new THREE.BoxGeometry(0.02, 0.01, 0.94);
-                const plank = new THREE.Mesh(plankGeo, darkWoodMat);
-                plank.position.set(i * 0.5, 0.065, 0);
-                visualGroup.add(plank);
-            }
 
             // Seat 1 (back)
             const seatGeo = new THREE.BoxGeometry(0.12, 0.06, 0.82);
@@ -705,11 +693,6 @@ window.ObjectFactory = {
 
             // Oars
             const oarShaftGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.6, 6);
-            const oarBladeTex = window.ObjectFactory.createWoodTexture('#6B4226', '#4A2A18', 1);
-            const oarBladeMat = new THREE.MeshStandardMaterial({
-                map: oarBladeTex,
-                roughness: 0.8
-            });
             const oarBladeGeo = new THREE.BoxGeometry(0.18, 0.02, 0.08);
 
             [-1, 1].forEach(side => {
