@@ -109,7 +109,8 @@ function applyTerrainOffsetsToFloor() {
     for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i);
         const y = pos.getY(i);
-        const z = window.getSharedTerrainHeight(x, y);
+        // Plane geometry +Y maps to world -Z
+        const z = window.getSharedTerrainHeight(x, -y);
         pos.setZ(i, z);
     }
     pos.needsUpdate = true;
@@ -1425,8 +1426,8 @@ function paintTerrain() {
                     let currentOffset = terrainOffsets[key] || 0;
                     
                     let delta = 0;
-                    if (terrainBrushMode === 'raise') delta = terrainBrushStrength * falloff;
-                    else if (terrainBrushMode === 'lower') delta = -terrainBrushStrength * falloff;
+                    if (terrainBrushMode === 'raise') delta = terrainBrushStrength * 0.1 * falloff;
+                    else if (terrainBrushMode === 'lower') delta = -terrainBrushStrength * 0.1 * falloff;
                     else if (terrainBrushMode === 'flatten') {
                         const h = window.getSharedTerrainHeight(x, z);
                         delta = (flattenHeight - h) * 0.1 * terrainBrushStrength * falloff;

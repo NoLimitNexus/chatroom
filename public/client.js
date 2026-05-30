@@ -903,7 +903,8 @@
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i);
             const y = pos.getY(i);
-            const z = window.getSharedTerrainHeight(x, y);
+            // Plane geometry +Y maps to world -Z
+            const z = window.getSharedTerrainHeight(x, -y);
             pos.setZ(i, z);
         }
         pos.needsUpdate = true;
