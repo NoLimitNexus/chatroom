@@ -1221,11 +1221,19 @@ document.getElementById('env-time').addEventListener('input', (e) => {
     window.environmentTimeOfDay = parseFloat(e.target.value);
     document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
     if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+    socket.emit('updateEnvironment', { 
+        timeOfDay: window.environmentTimeOfDay, 
+        timeSpeed: window.environmentTimeSpeed 
+    });
 });
 
 document.getElementById('env-speed').addEventListener('input', (e) => {
     window.environmentTimeSpeed = parseFloat(e.target.value);
     document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
+    socket.emit('updateEnvironment', { 
+        timeOfDay: window.environmentTimeOfDay, 
+        timeSpeed: window.environmentTimeSpeed 
+    });
 });
 
 document.getElementById('btn-save-env').addEventListener('click', () => {

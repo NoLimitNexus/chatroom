@@ -332,6 +332,15 @@ io.on('connection', (socket) => {
     });
 
     // Handle join (client sends username + character type)
+    socket.on('updateEnvironment', (envData) => {
+        if (mapData.environment) {
+            mapData.environment.timeOfDay = envData.timeOfDay;
+            mapData.environment.timeSpeed = envData.timeSpeed;
+            // Optionally broadcast immediately, but the 5s loop will handle it
+            io.emit('timeSync', mapData.environment);
+        }
+    });
+
     socket.on('join', (data) => {
         // Create player state only when they explicitly join
         players[socket.id] = {
