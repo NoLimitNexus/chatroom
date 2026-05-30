@@ -919,6 +919,13 @@
             .then(res => res.json())
             .then(data => {
                 clearEnvironmentObjects();
+                
+                if (data && data.environment) {
+                    window.environmentTimeOfDay = data.environment.timeOfDay;
+                    window.environmentTimeSpeed = data.environment.timeSpeed;
+                    if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+                }
+
                 if (data && data.terrainOffsets) {
                     terrainOffsets = data.terrainOffsets;
                     setTimeout(applyTerrainOffsetsToFloor, 500);
@@ -933,10 +940,22 @@
     // Load initial map
     loadMapData();
 
+    socket.on('timeSync', function (envData) {
+        window.environmentTimeOfDay = envData.timeOfDay;
+        window.environmentTimeSpeed = envData.timeSpeed;
+    });
+
     // Listen for live map updates from the editor
     socket.on('mapUpdate', function(data) {
         console.log('Map updated from server!');
         clearEnvironmentObjects();
+        
+        if (data && data.environment) {
+            window.environmentTimeOfDay = data.environment.timeOfDay;
+            window.environmentTimeSpeed = data.environment.timeSpeed;
+            if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+        }
+
         if (data && data.terrainOffsets) {
             terrainOffsets = data.terrainOffsets;
             applyTerrainOffsetsToFloor();
@@ -1567,6 +1586,12 @@
         if (!isPlaying) return;
         requestAnimationFrame(animate);
         var time = performance.now(), delta = Math.min((time - prevTime) / 1000, 0.1), t = time * 0.001;
+
+        if (window.environmentTimeSpeed > 0 && window.environmentTimeOfDay !== undefined) {
+            window.environmentTimeOfDay += window.environmentTimeSpeed * 0.1 * delta;
+            if (window.environmentTimeOfDay >= 24.0) window.environmentTimeOfDay -= 24.0;
+            if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+        }
         
         environmentUpdatables.forEach(u => {
             if (u.update) u.update(t, delta);

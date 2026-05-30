@@ -70,6 +70,27 @@ if (fs.existsSync(MAP_FILE)) {
     }
 }
 reinitBoatStates();
+if (!mapData.environment) {
+    mapData.environment = { timeOfDay: 12.0, timeSpeed: 0.1 }; // Default time speed: 0.1 (0.1 in game hours per real second = 240 seconds per game day? No, wait)
+}
+
+// Tick time of day on server
+setInterval(() => {
+    if (mapData.environment && mapData.environment.timeSpeed > 0) {
+        // timeSpeed represents in-game hours per real second. 0.1 = 1 game hour every 10 real seconds = 240s per day.
+        mapData.environment.timeOfDay += mapData.environment.timeSpeed * 0.1; // 100ms interval
+        if (mapData.environment.timeOfDay >= 24.0) {
+            mapData.environment.timeOfDay -= 24.0;
+        }
+    }
+}, 100);
+
+// Sync time with clients every 5 seconds
+setInterval(() => {
+    if (mapData.environment) {
+        io.emit('timeSync', mapData.environment);
+    }
+}, 5000);
 
 app.get('/api/map', async (req, res) => {
     if (process.env.NODE_ENV !== 'production') {
@@ -193,10 +214,10 @@ setInterval(() => {
                     z: obj.position.z,
                     ry: obj.rotation.y
                 });
-            } else if (dist > 0.5) {
+            } else if (dist > 0.1) {
                 state.returning = true;
                 
-                const moveDist = Math.min(dist, BOAT_RETURN_SPEED); // 1 sec tick
+                const moveDist = Math.min(dist, BOAT_RETURN_SPEED * 0.05); // 50ms tick
                 const dirX = dx / dist;
                 const dirZ = dz / dist;
                 
@@ -229,7 +250,7 @@ setInterval(() => {
             }
         }
     });
-}, 1000);
+}, 50);
 
 // Store player state
 const players = {};

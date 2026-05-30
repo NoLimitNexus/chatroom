@@ -415,6 +415,10 @@ const ENV_URLS = {
 function saveMap() {
     const mapData = {
         terrainOffsets,
+        environment: {
+            timeOfDay: window.environmentTimeOfDay !== undefined ? window.environmentTimeOfDay : 12.0,
+            timeSpeed: window.environmentTimeSpeed !== undefined ? window.environmentTimeSpeed : 1.0
+        },
         objects: environmentObjects.map(obj => {
             const isBoat = obj.userData.type === 'Boat';
             return {
@@ -1173,6 +1177,17 @@ socket.on('mapUpdate', function(data) {
     updatables = [];
     transformControl.detach();
     selectedObject = null;
+    
+    if (data && data.environment) {
+        window.environmentTimeOfDay = data.environment.timeOfDay;
+        window.environmentTimeSpeed = data.environment.timeSpeed;
+        document.getElementById('env-time').value = window.environmentTimeOfDay;
+        document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
+        document.getElementById('env-speed').value = window.environmentTimeSpeed;
+        document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
+        if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+    }
+    
     if (data && data.objects) data.objects.forEach(objData => instantiateObject(objData));
     updateObjectList();
     showNotification("Map synced from server");
@@ -1198,8 +1213,37 @@ chatInput.addEventListener('keypress', function(e) {
     }
 });
 
+document.getElementById('btn-save-terrain').addEventListener('click', () => {
+    saveMap();
+});
+
+document.getElementById('env-time').addEventListener('input', (e) => {
+    window.environmentTimeOfDay = parseFloat(e.target.value);
+    document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
+    if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+});
+
+document.getElementById('env-speed').addEventListener('input', (e) => {
+    window.environmentTimeSpeed = parseFloat(e.target.value);
+    document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
+});
+
+document.getElementById('btn-save-env').addEventListener('click', () => {
+    saveMap(); // saveMap already pushes mapData.environment if we update it
+});
+
+socket.on('timeSync', function (envData) {
+    window.environmentTimeOfDay = envData.timeOfDay;
+    window.environmentTimeSpeed = envData.timeSpeed;
+    document.getElementById('env-time').value = window.environmentTimeOfDay;
+    document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
+    document.getElementById('env-speed').value = window.environmentTimeSpeed;
+    document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
+    if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+});
+
 // ============================================================
-// RESIZE
+// MAIN LOOP
 // ============================================================
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -1217,6 +1261,11 @@ function animate() {
     const dt = clock.getDelta();
     const t = clock.elapsedTime;
 
+    if (window.environmentTimeSpeed > 0 && window.environmentTimeOfDay !== undefined) {
+        window.environmentTimeOfDay += window.environmentTimeSpeed * 0.1 * dt;
+        if (window.environmentTimeOfDay >= 24.0) window.environmentTimeOfDay -= 24.0;
+        if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+    }
     // ---- WASD Camera Movement ----
     if (document.activeElement !== chatInput && !transformControl.dragging) {
         const speed = editorKeys['ShiftLeft'] || editorKeys['ShiftRight'] ? 0.8 : 0.25;
@@ -1396,12 +1445,15 @@ document.getElementById('tab-editor').addEventListener('click', (e) => {
     document.getElementById('panel-editor').style.display = 'block';
     document.getElementById('panel-terrain').style.display = 'none';
     document.getElementById('panel-admin').style.display = 'none';
+    document.getElementById('panel-env').style.display = 'none';
     e.target.style.color = '#fff';
     e.target.style.borderColor = '#3b82f6';
     document.getElementById('tab-terrain').style.color = '#94a3b8';
     document.getElementById('tab-terrain').style.borderColor = 'transparent';
     document.getElementById('tab-admin').style.color = '#94a3b8';
     document.getElementById('tab-admin').style.borderColor = 'transparent';
+    document.getElementById('tab-env').style.color = '#94a3b8';
+    document.getElementById('tab-env').style.borderColor = 'transparent';
     terrainMode = false;
     if (terrainBrush) terrainBrush.visible = false;
 });
@@ -1410,12 +1462,15 @@ document.getElementById('tab-terrain').addEventListener('click', (e) => {
     document.getElementById('panel-editor').style.display = 'none';
     document.getElementById('panel-terrain').style.display = 'block';
     document.getElementById('panel-admin').style.display = 'none';
+    document.getElementById('panel-env').style.display = 'none';
     e.target.style.color = '#fff';
     e.target.style.borderColor = '#10b981';
     document.getElementById('tab-editor').style.color = '#94a3b8';
     document.getElementById('tab-editor').style.borderColor = 'transparent';
     document.getElementById('tab-admin').style.color = '#94a3b8';
     document.getElementById('tab-admin').style.borderColor = 'transparent';
+    document.getElementById('tab-env').style.color = '#94a3b8';
+    document.getElementById('tab-env').style.borderColor = 'transparent';
     terrainMode = true;
     selectObject(null);
     cancelPlacementMode();
@@ -1425,12 +1480,32 @@ document.getElementById('tab-admin').addEventListener('click', (e) => {
     document.getElementById('panel-editor').style.display = 'none';
     document.getElementById('panel-terrain').style.display = 'none';
     document.getElementById('panel-admin').style.display = 'block';
+    document.getElementById('panel-env').style.display = 'none';
     e.target.style.color = '#fff';
     e.target.style.borderColor = '#8b5cf6';
     document.getElementById('tab-editor').style.color = '#94a3b8';
     document.getElementById('tab-editor').style.borderColor = 'transparent';
     document.getElementById('tab-terrain').style.color = '#94a3b8';
     document.getElementById('tab-terrain').style.borderColor = 'transparent';
+    document.getElementById('tab-env').style.color = '#94a3b8';
+    document.getElementById('tab-env').style.borderColor = 'transparent';
+    terrainMode = false;
+    if (terrainBrush) terrainBrush.visible = false;
+});
+
+document.getElementById('tab-env').addEventListener('click', (e) => {
+    document.getElementById('panel-editor').style.display = 'none';
+    document.getElementById('panel-terrain').style.display = 'none';
+    document.getElementById('panel-admin').style.display = 'none';
+    document.getElementById('panel-env').style.display = 'block';
+    e.target.style.color = '#fff';
+    e.target.style.borderColor = '#f59e0b';
+    document.getElementById('tab-editor').style.color = '#94a3b8';
+    document.getElementById('tab-editor').style.borderColor = 'transparent';
+    document.getElementById('tab-terrain').style.color = '#94a3b8';
+    document.getElementById('tab-terrain').style.borderColor = 'transparent';
+    document.getElementById('tab-admin').style.color = '#94a3b8';
+    document.getElementById('tab-admin').style.borderColor = 'transparent';
     terrainMode = false;
     if (terrainBrush) terrainBrush.visible = false;
 });
@@ -1457,9 +1532,6 @@ document.getElementById('brush-strength').addEventListener('input', (e) => {
     document.getElementById('brush-strength-val').innerText = terrainBrushStrength;
 });
 
-document.getElementById('btn-save-terrain').addEventListener('click', () => {
-    saveMap();
-});
 
 function paintTerrain() {
     if (!terrainMode || !floorMesh || !isPaintingTerrain) return;
