@@ -1988,7 +1988,6 @@
                     
 
                     if (time - lastBoatEmitTime > 50) {
-                        console.log("[Client] Emitting boatMoved event:", boat.userData.id, boat.position.x, boat.position.z);
                         socket.emit('boatMoved', {
                             id: boat.userData.id,
                             x: boat.position.x,
@@ -2003,6 +2002,13 @@
                     var charSpeed = isSprinting ? 1.0 : 0.5;
                     localVx = (moveX / moveLen) * charSpeed;
                     localVz = (moveZ / moveLen) * charSpeed;
+                }
+                
+                // Heartbeat so the server knows the boat is still occupied
+                if (typeof window.lastBoatOccupiedEmit === 'undefined') window.lastBoatOccupiedEmit = 0;
+                if (time - window.lastBoatOccupiedEmit > 2000) {
+                    socket.emit('boatOccupied', boat.userData.id);
+                    window.lastBoatOccupiedEmit = time;
                 }
 
                 // Snap player to boat position (always)

@@ -43,6 +43,23 @@ function queueMapSave() {
     }, 5000); // Save at most once every 5 seconds
 }
 
+let boatStates = {};
+
+function reinitBoatStates() {
+    if (mapData && mapData.objects) {
+        mapData.objects.forEach(obj => {
+            if (obj.type === 'Boat') {
+                boatStates[obj.id] = {
+                    spawnPos: { ...obj.position },
+                    spawnRot: obj.rotation ? obj.rotation.y : 0,
+                    lastOccupiedTime: Date.now(),
+                    returning: false
+                };
+            }
+        });
+    }
+}
+
 // Load map data or create default
 let mapData = { objects: [] };
 if (fs.existsSync(MAP_FILE)) {
@@ -52,6 +69,7 @@ if (fs.existsSync(MAP_FILE)) {
         console.error("Error reading map.json", e);
     }
 }
+reinitBoatStates();
 
 app.get('/api/map', async (req, res) => {
     if (process.env.NODE_ENV !== 'production') {
@@ -84,6 +102,21 @@ app.get('/api/status', (req, res) => {
 
 app.post('/api/map', (req, res) => {
     mapData = req.body;
+    
+    // Re-initialize spawn positions for all boats from the new map data
+    if (mapData && mapData.objects) {
+        mapData.objects.forEach(obj => {
+            if (obj.type === 'Boat') {
+                boatStates[obj.id] = {
+                    spawnPos: { ...obj.position },
+                    spawnRot: obj.rotation ? obj.rotation.y : 0,
+                    lastOccupiedTime: Date.now(),
+                    returning: false
+                };
+            }
+        });
+    }
+
     fs.writeFile(MAP_FILE, JSON.stringify(mapData, null, 2), (err) => {
         if (err) console.error("Error writing map.json", err);
     });
@@ -107,6 +140,7 @@ async function syncFromProd() {
             fs.writeFile(MAP_FILE, JSON.stringify(mapData, null, 2), (err) => {
                 if (err) console.error("Error writing map.json", err);
             });
+            reinitBoatStates();
             io.emit('mapUpdate', mapData);
             console.log(`[Sync] Pulled ${prodData.objects?.length || 0} objects from production`);
         }
@@ -122,6 +156,67 @@ app.get('/api/sync-from-prod', async (req, res) => {
 // Auto-sync from production every 30 seconds
 setInterval(syncFromProd, 30000);
 syncFromProd(); // Initial sync on startup
+
+// ----------------------------------------------------
+// AUTO-RETURN BOATS LOGIC (2 MINUTES IDLE)
+// ----------------------------------------------------
+const BOAT_RETURN_TIMEOUT = 120000; // 2 minutes
+const BOAT_RETURN_SPEED = 3.0; // meters per sec
+
+setInterval(() => {
+    if (!mapData || !mapData.objects) return;
+    const now = Date.now();
+
+    mapData.objects.forEach(obj => {
+        if (obj.type !== 'Boat') return;
+        const id = obj.id;
+        
+        if (!boatStates[id]) return; // Safety check
+        const state = boatStates[id];
+
+        // 2 minutes of no occupancy
+        if (now - state.lastOccupiedTime > BOAT_RETURN_TIMEOUT) {
+            const dx = state.spawnPos.x - obj.position.x;
+            const dz = state.spawnPos.z - obj.position.z;
+            const dist = Math.hypot(dx, dz);
+
+            if (dist > 0.5) {
+                state.returning = true;
+                
+                const moveDist = Math.min(dist, BOAT_RETURN_SPEED); // 1 sec tick
+                const dirX = dx / dist;
+                const dirZ = dz / dist;
+                
+                obj.position.x += dirX * moveDist;
+                obj.position.z += dirZ * moveDist;
+                
+                obj.rotation = obj.rotation || {};
+                obj.rotation.y = Math.atan2(dirX, dirZ);
+
+                io.emit('boatMoved', {
+                    id: id,
+                    x: obj.position.x,
+                    y: obj.position.y,
+                    z: obj.position.z,
+                    ry: obj.rotation.y
+                });
+            } else if (state.returning) {
+                // Reached spawn perfectly
+                state.returning = false;
+                obj.position.x = state.spawnPos.x;
+                obj.position.z = state.spawnPos.z;
+                obj.rotation.y = state.spawnRot;
+                io.emit('boatMoved', {
+                    id: id,
+                    x: obj.position.x,
+                    y: obj.position.y,
+                    z: obj.position.z,
+                    ry: obj.rotation.y
+                });
+            }
+        }
+    });
+}, 1000);
 
 // Store player state
 const players = {};
@@ -283,10 +378,20 @@ io.on('connection', (socket) => {
                 boatObj.position = { x: data.x, y: data.y, z: data.z };
                 if (!boatObj.rotation) boatObj.rotation = {};
                 boatObj.rotation.y = data.ry;
-                queueMapSave();
             }
         }
+        if (boatStates[data.id]) {
+            boatStates[data.id].lastOccupiedTime = Date.now();
+            boatStates[data.id].returning = false;
+        }
         socket.broadcast.emit('boatMoved', data);
+    });
+
+    socket.on('boatOccupied', (id) => {
+        if (boatStates[id]) {
+            boatStates[id].lastOccupiedTime = Date.now();
+            boatStates[id].returning = false;
+        }
     });
 
     // Handle movement
