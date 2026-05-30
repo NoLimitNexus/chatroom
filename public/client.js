@@ -941,7 +941,9 @@
     loadMapData();
 
     socket.on('timeSync', function (envData) {
-        window.environmentTimeOfDay = envData.timeOfDay;
+        if (Math.abs(window.environmentTimeOfDay - envData.timeOfDay) > 0.05 || window.environmentTimeOfDay === undefined) {
+            window.environmentTimeOfDay = envData.timeOfDay;
+        }
         window.environmentTimeSpeed = envData.timeSpeed;
     });
 

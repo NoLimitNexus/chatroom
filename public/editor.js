@@ -1241,9 +1241,13 @@ document.getElementById('btn-save-env').addEventListener('click', () => {
 });
 
 socket.on('timeSync', function (envData) {
-    window.environmentTimeOfDay = envData.timeOfDay;
+    if (Math.abs(window.environmentTimeOfDay - envData.timeOfDay) > 0.05 || window.environmentTimeOfDay === undefined) {
+        window.environmentTimeOfDay = envData.timeOfDay;
+        document.getElementById('env-time').value = window.environmentTimeOfDay;
+        document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
+    }
     window.environmentTimeSpeed = envData.timeSpeed;
-    document.getElementById('env-time').value = window.environmentTimeOfDay;
+    document.getElementById('env-speed').value = window.environmentTimeSpeed;
     document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
     document.getElementById('env-speed').value = window.environmentTimeSpeed;
     document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
