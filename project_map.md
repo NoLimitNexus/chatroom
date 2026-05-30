@@ -49,7 +49,8 @@ LIVE (NAS - Production):
 
 ## Data Flow
 
-- **Editor Save button** pushes map data to both Local + Live simultaneously.
+- **Editor Save button** pushes map data to **Local, Dev, and Live** simultaneously!
+- ⚠️ **Important Editor Save Rule:** Because of browser "Mixed Content" security (HTTPS vs HTTP), you must use the **Local** or **Dev** Editor to push to all three environments. If you save from the **Live** (HTTPS) editor, your browser will block the push to Local/Dev, and the changes will only save to Live.
 - **Local server** auto-pulls map changes from Live every 30 seconds.
 - **shared-characters.js** and **shared-environment.js** are loaded from GitHub Pages CDN by all pages on all servers.
 
