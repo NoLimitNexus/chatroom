@@ -12,6 +12,7 @@ window.ObjectFactory = {
         'Lantern':     { icon: '💡', category: 'Lights' },
         'Tree':        { icon: '🌳', category: 'Nature' },
         'Pine':        { icon: '🌲', category: 'Nature' },
+        'PremiumPine': { icon: '🌲', category: 'Nature' },
         'Rock':        { icon: '🪨', category: 'Nature' },
         'Bush':        { icon: '🌿', category: 'Nature' },
         'FishingSpot': { icon: '🐟', category: 'Interactive' },
@@ -402,6 +403,48 @@ window.ObjectFactory = {
                 cone.castShadow = true;
                 group.add(cone);
             });
+            break;
+        }
+
+        // ---- PREMIUM PINE (From Shared Environment) ----
+        case 'PremiumPine': {
+            group = new THREE.Group();
+            const trunkGeo = new THREE.CylinderGeometry(0.2, 0.4, 1.2, 6);
+            const tier1Geo = new THREE.ConeGeometry(1.8, 2.5, 6);
+            const tier2Geo = new THREE.ConeGeometry(1.4, 2.0, 6);
+            const tier3Geo = new THREE.ConeGeometry(1.0, 1.5, 6);
+
+            trunkGeo.translate(0, 0.6, 0);
+            tier1Geo.translate(0, 1.25, 0);
+            tier2Geo.translate(0, 1.0, 0);
+            tier3Geo.translate(0, 0.75, 0);
+
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3219, roughness: 1.0, flatShading: true });
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x245223, roughness: 0.9, flatShading: true });
+            const darkLeafMat = new THREE.MeshStandardMaterial({ color: 0x1a3d19, roughness: 0.9, flatShading: true });
+
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.castShadow = true; trunk.receiveShadow = true;
+            group.add(trunk);
+
+            // In procedural env, it was randomly picking leafMat vs darkLeafMat per tree. We can just pick one, or use a vertex color... let's just pick darkLeafMat as default.
+            // If they want variety, we can use a seed or just random. Let's use random for visual parity.
+            const mat = Math.random() > 0.5 ? leafMat : darkLeafMat;
+
+            const t1 = new THREE.Mesh(tier1Geo, mat);
+            t1.position.y = 0.8;
+            t1.castShadow = true; t1.receiveShadow = true;
+            group.add(t1);
+
+            const t2 = new THREE.Mesh(tier2Geo, mat);
+            t2.position.y = t1.position.y + 1.2;
+            t2.castShadow = true; t2.receiveShadow = true;
+            group.add(t2);
+
+            const t3 = new THREE.Mesh(tier3Geo, mat);
+            t3.position.y = t2.position.y + 1.0;
+            t3.castShadow = true; t3.receiveShadow = true;
+            group.add(t3);
             break;
         }
 
