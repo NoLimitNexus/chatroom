@@ -2202,8 +2202,13 @@
         });
         manager.on('move', (evt, data) => {
             if (data && data.vector) {
-                joystickMoveX = -data.vector.x;
-                joystickMoveZ = data.vector.y;
+                if (data.distance < 10) {
+                    joystickMoveX = 0;
+                    joystickMoveZ = 0;
+                } else {
+                    joystickMoveX = -data.vector.x;
+                    joystickMoveZ = data.vector.y;
+                }
             }
         });
         manager.on('end', () => {
@@ -2212,13 +2217,19 @@
         });
         
         // Absolute fallback to ensure joystick resets when thumb is lifted
-        document.getElementById('joystick-zone').addEventListener('touchend', () => {
+        const forceJoystickReset = () => {
             joystickMoveX = 0;
             joystickMoveZ = 0;
+        };
+        document.getElementById('joystick-zone').addEventListener('touchend', forceJoystickReset);
+        document.getElementById('joystick-zone').addEventListener('touchcancel', forceJoystickReset);
+        
+        // If ALL fingers are off the screen, guarantee the joystick is reset
+        document.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) forceJoystickReset();
         });
-        document.getElementById('joystick-zone').addEventListener('touchcancel', () => {
-            joystickMoveX = 0;
-            joystickMoveZ = 0;
+        document.addEventListener('touchcancel', (e) => {
+            if (e.touches.length === 0) forceJoystickReset();
         });
 
         let lookTouchId = null;
