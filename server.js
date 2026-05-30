@@ -180,7 +180,20 @@ setInterval(() => {
             const dz = state.spawnPos.z - obj.position.z;
             const dist = Math.hypot(dx, dz);
 
-            if (dist > 0.5) {
+            if (dist > 30.0) {
+                // Teleport if too far
+                state.returning = false;
+                obj.position.x = state.spawnPos.x;
+                obj.position.z = state.spawnPos.z;
+                obj.rotation.y = state.spawnRot;
+                io.emit('boatMoved', {
+                    id: id,
+                    x: obj.position.x,
+                    y: obj.position.y,
+                    z: obj.position.z,
+                    ry: obj.rotation.y
+                });
+            } else if (dist > 0.5) {
                 state.returning = true;
                 
                 const moveDist = Math.min(dist, BOAT_RETURN_SPEED); // 1 sec tick

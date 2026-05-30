@@ -1485,8 +1485,22 @@
     socket.on('boatMoved', function (d) {
         for (let i = 0; i < environmentObjects.length; i++) {
             if (environmentObjects[i].userData.id === d.id && environmentObjects[i].userData.type === 'Boat') {
-                environmentObjects[i].position.set(d.x, d.y, d.z);
-                environmentObjects[i].rotation.y = d.ry;
+                const boat = environmentObjects[i];
+                if (!boat.userData.targetPosition) {
+                    boat.userData.targetPosition = boat.position.clone();
+                }
+                const newPos = new THREE.Vector3(d.x, d.y, d.z);
+                
+                // If it's a teleport (distance > 15), snap instantly
+                if (boat.position.distanceTo(newPos) > 15.0) {
+                    boat.position.copy(newPos);
+                    boat.rotation.y = d.ry;
+                    boat.userData.isLerping = false;
+                } else {
+                    boat.userData.targetPosition.copy(newPos);
+                    boat.userData.targetRotationY = d.ry;
+                    boat.userData.isLerping = true;
+                }
                 break;
             }
         }
@@ -1557,6 +1571,32 @@
         environmentUpdatables.forEach(u => {
             if (u.update) u.update(t, delta);
         });
+
+        for (let i = 0; i < environmentObjects.length; i++) {
+            let obj = environmentObjects[i];
+            if (obj.userData.type === 'Boat' && obj.userData.isLerping) {
+                // Ignore the boat we are currently riding
+                if (!boatState.active || boatState.boatGroup !== obj) {
+                    obj.position.lerp(obj.userData.targetPosition, 0.05);
+                    
+                    let diff = obj.userData.targetRotationY - obj.rotation.y;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    obj.rotation.y += diff * 0.05;
+                    
+                    if (obj.position.distanceTo(obj.userData.targetPosition) < 0.05) {
+                        obj.position.copy(obj.userData.targetPosition);
+                        obj.rotation.y = obj.userData.targetRotationY;
+                        obj.userData.isLerping = false;
+                    }
+
+                    // Add wakes for visually moving boats
+                    if (window.RippleWater && Math.random() < 0.2) {
+                        window.RippleWater.addDrop(renderer, obj.position.x, obj.position.z, 2.0, 0.1);
+                    }
+                }
+            }
+        }
 
         for (let i = splashParticles.length - 1; i >= 0; i--) {
             let p = splashParticles[i];
