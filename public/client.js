@@ -900,15 +900,24 @@
     function applyTerrainOffsetsToFloor() {
         if (!floorMesh) return;
         const pos = floorMesh.geometry.attributes.position;
+        const invMat = new THREE.Matrix4().copy(floorMesh.matrixWorld).invert();
+        const vec = new THREE.Vector3();
+
         for (let i = 0; i < pos.count; i++) {
-            const x = pos.getX(i);
-            const y = pos.getY(i);
-            // Plane geometry +Y maps to world -Z
-            const z = window.getSharedTerrainHeight(x, -y);
-            pos.setZ(i, z);
+            vec.fromBufferAttribute(pos, i);
+            vec.applyMatrix4(floorMesh.matrixWorld); // to world space
+            
+            const targetWorldY = window.getSharedTerrainHeight(vec.x, vec.z);
+            vec.y = targetWorldY;
+            
+            vec.applyMatrix4(invMat); // back to local
+            
+            pos.setXYZ(i, vec.x, vec.y, vec.z);
         }
         pos.needsUpdate = true;
         floorMesh.geometry.computeVertexNormals();
+        floorMesh.geometry.computeBoundingBox();
+        floorMesh.geometry.computeBoundingSphere();
     }
 
     function loadMapData() {

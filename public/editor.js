@@ -106,15 +106,28 @@ if (window.getSharedTerrainHeight) {
 function applyTerrainOffsetsToFloor() {
     if (!floorMesh) return;
     const pos = floorMesh.geometry.attributes.position;
+    const invMat = new THREE.Matrix4().copy(floorMesh.matrixWorld).invert();
+    const vec = new THREE.Vector3();
+
     for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        // Plane geometry +Y maps to world -Z
-        const z = window.getSharedTerrainHeight(x, -y);
-        pos.setZ(i, z);
+        vec.fromBufferAttribute(pos, i);
+        vec.applyMatrix4(floorMesh.matrixWorld); // to world space
+        
+        // Get target world height
+        const targetWorldY = window.getSharedTerrainHeight(vec.x, vec.z);
+        
+        // Reset to world height
+        vec.y = targetWorldY;
+        
+        // Transform back to local space
+        vec.applyMatrix4(invMat);
+        
+        pos.setXYZ(i, vec.x, vec.y, vec.z);
     }
     pos.needsUpdate = true;
     floorMesh.geometry.computeVertexNormals();
+    floorMesh.geometry.computeBoundingBox();
+    floorMesh.geometry.computeBoundingSphere();
 }
 
 // Camera mode: 'free' | 'follow'
