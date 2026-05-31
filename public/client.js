@@ -2507,7 +2507,7 @@
 
         btnE.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (nearestInteractable && !inventoryOpen) interactWithNearest();
+            document.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'KeyE' }));
         }, {passive: false});
 
         btnJump.addEventListener('touchstart', (e) => {

@@ -93,9 +93,6 @@ setInterval(() => {
 }, 5000);
 
 app.get('/api/map', async (req, res) => {
-    if (process.env.NODE_ENV !== 'production') {
-        await syncFromProd();
-    }
     res.json(mapData);
 });
 
@@ -174,8 +171,6 @@ app.get('/api/sync-from-prod', async (req, res) => {
     res.json({ success: true, objects: mapData.objects?.length || 0 });
 });
 
-// Auto-sync from production every 30 seconds
-setInterval(syncFromProd, 30000);
 syncFromProd(); // Initial sync on startup
 
 // ----------------------------------------------------
