@@ -302,51 +302,16 @@
             }
         });
 
-        // --- RAYCAST TARGETING FOR BOATS & FISHING SPOTS (with range pre-filtering) ---
-        let targetedSpot = null;
-        let interactables = [];
-        
-        // Only consider nearby objects for raycasting to optimize performance
-        fishingSpots.forEach(s => {
-            if (myCharacter.position.distanceTo(s.position) < 12.0) {
-                interactables.push(s);
-            }
-        });
-        boatObjects.forEach(boat => {
-            if (boatState.active && boatState.boatGroup === boat) return;
-            if (myCharacter.position.distanceTo(boat.position) < 12.0) {
-                interactables.push(boat);
-            }
-        });
-
-        if (interactables.length > 0) {
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            const hits = raycaster.intersectObjects(interactables, true);
-            if (hits.length > 0) {
-                let curr = hits[0].object;
-                while (curr && !curr.userData.isEnvironmentObject) {
-                    curr = curr.parent;
-                }
-                targetedSpot = curr;
-            }
-        }
-
-        // Update fishing spot rings based on raycast targeting
+        // Show fishing spot ring when player is within range
         fishingSpots.forEach(group => {
             if (group.userData.ring) {
-                const isTargeted = (group === targetedSpot) && myCharacter.position.distanceTo(group.position) < 8.0;
-                group.userData.ring.visible = isTargeted;
+                const dist = myCharacter.position.distanceTo(group.position);
+                group.userData.ring.visible = (dist < fishingRange);
             }
         });
 
-        // Set nearestInteractable: prioritize targeted boat/fishing spot if in range
-        if (targetedSpot && targetedSpot.userData && targetedSpot.userData.action === 'boat' && myCharacter.position.distanceTo(targetedSpot.position) < 5.0) {
-            nearestInteractable = targetedSpot;
-        } else if (targetedSpot && targetedSpot.userData && targetedSpot.userData.action === 'fishing' && myCharacter.position.distanceTo(targetedSpot.position) < fishingRange) {
-            nearestInteractable = targetedSpot;
-        } else {
-            nearestInteractable = closestItem;
-        }
+        // Purely proximity-based: closest interactable always wins
+        nearestInteractable = closestItem;
 
         updateInteractionPrompt();
     }
