@@ -20,7 +20,7 @@
         </div>
         <div class="top-links">
             <a href="https://play.nolimitnexus.com">Play Game</a>
-            <a href="https://hub.nolimitnexus.com">Admin Hub</a>
+            <a href="https://nolimitnexus.com">Home</a>
         </div>
     </nav>
 
@@ -45,14 +45,7 @@
                 </ul>
             </div>
 
-            <div class="nav-section">
-                <h3>DEVELOPMENT</h3>
-                <ul>
-                    <li><a href="#">World Editor Guide</a></li>
-                    <li><a href="#">Goop Lab Prototyping</a></li>
-                    <li><a href="#">Server Architecture</a></li>
-                </ul>
-            </div>
+
         </aside>
 
         <!-- Main Content -->
@@ -66,7 +59,7 @@
                 <p class="lead"><strong>No Limit Nexus</strong> is an experimental, persistent 3D sandbox MMO environment running on an independent Node.js infrastructure.</p>
                 
                 <h2>What is this place?</h2>
-                <p>The Nexus functions as an interactive chatroom and prototyping playground. It features real-time multiplayer, persistent world-building via the <strong>World Editor</strong>, and character prototyping tools in the <strong>Goop Lab</strong>.</p>
+                <p>The Nexus is a persistent, browser-based 3D multiplayer sandbox. Jump in, explore, fish, chat, and hang out with friends — no downloads required.</p>
 
                 <div class="callout callout-info">
                     <strong>Note:</strong> The environment is actively under development. Expect bugs, sudden server reboots, and occasional map wipes as the architecture evolves.
@@ -77,22 +70,15 @@
                     <a href="https://play.nolimitnexus.com" class="card-link">
                         <span class="icon">🎮</span>
                         <div>
-                            <h4>Game Client</h4>
+                            <h4>Play Now</h4>
                             <p>Jump right into the world.</p>
                         </div>
                     </a>
-                    <a href="https://studio.nolimitnexus.com" class="card-link">
-                        <span class="icon">🗺️</span>
+                    <a href="https://nolimitnexus.com" class="card-link">
+                        <span class="icon">🏠</span>
                         <div>
-                            <h4>World Editor</h4>
-                            <p>Shape the map in real-time.</p>
-                        </div>
-                    </a>
-                    <a href="https://gooplab.nolimitnexus.com" class="card-link">
-                        <span class="icon">🧪</span>
-                        <div>
-                            <h4>Goop Lab</h4>
-                            <p>Character & VFX workshop.</p>
+                            <h4>Home</h4>
+                            <p>Back to the main site.</p>
                         </div>
                     </a>
                 </div>
@@ -111,18 +97,7 @@
                     <li><code>E</code> — Interact / Fish</li>
                 </ul>
 
-                <hr>
 
-                <h2>Infrastructure</h2>
-                <p>The application is distributed across multiple subdomains, all routing through a high-performance Cloudflare Tunnel to an internal Dockerized Node.js environment.</p>
-                
-                <pre><code>// Example Routing Logic
-play.nolimitnexus.com      -> index.html
-studio.nolimitnexus.com    -> editor.html
-gooplab.nolimitnexus.com   -> studio.html
-hub.nolimitnexus.com       -> hub.html</code></pre>
-
-                <p>If you're an admin, use the <a href="https://hub.nolimitnexus.com">Command Hub</a> to monitor container health and active players.</p>
             </article>
 
             <footer class="content-footer">
