@@ -131,5 +131,131 @@
     "duration": 1934420,
     "joinTime": 1780219169581,
     "leaveTime": 1780221104001
+  },
+  {
+    "username": "a",
+    "charType": "goop",
+    "duration": 1986882,
+    "joinTime": 1780221481662,
+    "leaveTime": 1780223468545
+  },
+  {
+    "username": "ASD",
+    "charType": "goop",
+    "duration": 816619,
+    "joinTime": 1780223470288,
+    "leaveTime": 1780224286907
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 45954,
+    "joinTime": 1780224836365,
+    "leaveTime": 1780224882319
+  },
+  {
+    "username": "ASD",
+    "charType": "goop",
+    "duration": 6391,
+    "joinTime": 1780225100363,
+    "leaveTime": 1780225106754
+  },
+  {
+    "username": "ASD",
+    "charType": "goop",
+    "duration": 23364,
+    "joinTime": 1780225131923,
+    "leaveTime": 1780225155287
+  },
+  {
+    "username": "ASD",
+    "charType": "goop",
+    "duration": 6830,
+    "joinTime": 1780225274319,
+    "leaveTime": 1780225281149
+  },
+  {
+    "username": "ASWD",
+    "charType": "goop",
+    "duration": 6268,
+    "joinTime": 1780225296503,
+    "leaveTime": 1780225302771
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 8353,
+    "joinTime": 1780225693914,
+    "leaveTime": 1780225702267
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 94010,
+    "joinTime": 1780225704080,
+    "leaveTime": 1780225798090
+  },
+  {
+    "username": "ASD",
+    "charType": "goop",
+    "duration": 260011,
+    "joinTime": 1780226112092,
+    "leaveTime": 1780226372103
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 19250,
+    "joinTime": 1780227158717,
+    "leaveTime": 1780227177967
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 59987,
+    "joinTime": 1780227514432,
+    "leaveTime": 1780227574419
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 755109,
+    "joinTime": 1780227575975,
+    "leaveTime": 1780228331084
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 164696,
+    "joinTime": 1780230346404,
+    "leaveTime": 1780230511100
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 366898,
+    "joinTime": 1780230513066,
+    "leaveTime": 1780230879964
+  },
+  {
+    "username": "ASD",
+    "charType": "goop",
+    "duration": 2315157,
+    "joinTime": 1780247625332,
+    "leaveTime": 1780249940489
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 319384,
+    "joinTime": 1780249942107,
+    "leaveTime": 1780250261491
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 46888,
+    "joinTime": 1780250263428,
+    "leaveTime": 1780250310316
   }
 ]

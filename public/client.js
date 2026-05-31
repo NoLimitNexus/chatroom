@@ -2116,14 +2116,14 @@
                     var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
                     direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
 
-                    // Rotate boat to face movement direction (fast snap)
+                    // Rotate boat to face movement direction (smooth turn)
                     var targetYaw = Math.atan2(direction.x, direction.z);
                     var diff = targetYaw - boat.rotation.y;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
-                    boat.rotation.y += diff * 15 * delta;
+                    boat.rotation.y += diff * 4 * delta;
 
-                    // Move along movement direction
+                    // Calculate next position
                     var nextX = boat.position.x + direction.x * bSpeed * delta;
                     var nextZ = boat.position.z + direction.z * bSpeed * delta;
                     
