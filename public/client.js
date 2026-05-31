@@ -2535,11 +2535,51 @@
         initMobileControls();
     }
     
-    // Independent heartbeat to keep boat active even when browser throttles rAF in background
-    setInterval(() => {
-        if (boatState.active && boatState.boatGroup) {
+    // ---- TAB VISIBILITY: disconnect if hidden too long ----
+    var tabHiddenTime = null;
+    var TAB_TIMEOUT = 30000; // 30 seconds
+    var disconnectedByVisibility = false;
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            tabHiddenTime = Date.now();
+        } else {
+            // Tab came back — if we disconnected, show reconnect overlay
+            if (disconnectedByVisibility) {
+                // Already disconnected, overlay is showing
+                return;
+            }
+            tabHiddenTime = null;
+        }
+    });
+
+    // Check periodically if tab has been hidden too long
+    setInterval(function() {
+        if (tabHiddenTime && !disconnectedByVisibility && (Date.now() - tabHiddenTime > TAB_TIMEOUT)) {
+            disconnectedByVisibility = true;
+            socket.disconnect();
+            showReconnectOverlay();
+        }
+        // Keep boat heartbeat alive when tab IS active
+        if (!document.hidden && boatState.active && boatState.boatGroup) {
             socket.emit('boatOccupied', boatState.boatGroup.userData.id);
         }
     }, 2000);
+
+    function showReconnectOverlay() {
+        var overlay = document.createElement('div');
+        overlay.id = 'reconnect-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;';
+        overlay.innerHTML = '<div style="text-align:center;color:#fff;">' +
+            '<div style="font-size:2rem;margin-bottom:12px;">💤</div>' +
+            '<h2 style="margin:0 0 8px;font-size:1.3rem;">Disconnected</h2>' +
+            '<p style="color:#94a3b8;margin:0 0 20px;font-size:0.9rem;">You were away for too long.</p>' +
+            '<button id="reconnect-btn" style="padding:12px 30px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:1rem;cursor:pointer;">Reconnect</button>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        document.getElementById('reconnect-btn').addEventListener('click', function() {
+            location.reload();
+        });
+    }
 
 })();

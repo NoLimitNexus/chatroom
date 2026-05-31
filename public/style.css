@@ -357,59 +357,247 @@ canvas {
    MOBILE RESPONSIVENESS
    ============================ */
 @media (max-width: 768px) {
+    body {
+        -webkit-text-size-adjust: 100%;
+        touch-action: manipulation;
+    }
+
+    /* Login panel */
     #login-panel {
-        width: 90%;
+        width: 88%;
         min-width: 0;
-        padding: 15px;
+        max-width: 340px;
+        border-radius: 14px;
     }
-    
+
+    #login-step-1 {
+        padding: 28px 20px 24px;
+    }
+
+    #login-step-1 h2 {
+        font-size: 16px;
+        letter-spacing: 2px;
+        margin-bottom: 18px;
+    }
+
+    #login-step-1 input {
+        font-size: 16px; /* Prevents iOS zoom on focus */
+        padding: 12px 14px;
+    }
+
+    #next-btn {
+        font-size: 12px;
+        padding: 12px 16px;
+    }
+
+    /* Welcome panel */
     #welcome-panel {
-        width: 90%;
-        padding: 15px;
+        width: 90% !important;
+        max-width: 360px !important;
+        padding: 20px !important;
+        font-size: 13px !important;
     }
-    
+
+    #welcome-panel h2 {
+        font-size: 16px !important;
+        margin-bottom: 14px !important;
+    }
+
+    #welcome-panel ul {
+        padding-left: 16px !important;
+        font-size: 13px !important;
+    }
+
+    #welcome-panel li {
+        margin-bottom: 5px !important;
+    }
+
+    #welcome-panel button {
+        padding: 10px 20px !important;
+        font-size: 13px !important;
+    }
+
+    /* Chat */
     #chat-box {
         width: 100%;
         left: 0;
         bottom: 0;
         padding: 0;
-        border-radius: 0;
         pointer-events: none;
     }
-    
+
     #chat-messages {
-        height: 150px;
+        height: 120px;
         border-radius: 0;
         font-size: 12px;
-        opacity: 0.8;
-    }
-    
-    #chat-input {
-        border-radius: 0;
+        opacity: 0.85;
         padding: 10px;
     }
 
+    #chat-input {
+        border-radius: 0;
+        padding: 10px;
+        font-size: 16px; /* Prevents iOS zoom */
+    }
+
+    /* Inventory */
     #inventory-ui {
-        width: 95% !important;
-        left: 2.5%;
+        width: 90% !important;
+        max-width: 300px !important;
+        left: 50% !important;
         right: auto !important;
-        bottom: 110px !important;
-        font-size: 10px;
+        bottom: 120px !important;
+        transform: translateX(-50%);
+        font-size: 11px;
         z-index: 600;
+        padding: 8px !important;
     }
 
     #inventory-grid {
         grid-template-columns: repeat(5, 1fr) !important;
+        gap: 3px !important;
     }
-    
+
     .inv-slot {
         width: 100% !important;
         height: auto !important;
         aspect-ratio: 1 / 1;
     }
 
+    /* Mobile control buttons */
+    #mobile-buttons {
+        bottom: env(safe-area-inset-bottom, 16px) !important;
+        right: 12px !important;
+        gap: 10px !important;
+    }
+
+    #mobile-buttons button {
+        font-size: 11px !important;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #mobile-btn-jump {
+        width: 64px !important;
+        height: 64px !important;
+        font-size: 12px !important;
+    }
+
+    #mobile-btn-e {
+        width: 56px !important;
+        height: 56px !important;
+        font-size: 16px !important;
+    }
+
+    #mobile-btn-inv,
+    #mobile-btn-drop,
+    #mobile-btn-chat {
+        width: 48px !important;
+        height: 48px !important;
+        font-size: 10px !important;
+    }
+
+    /* Interaction prompt */
+    #interaction-prompt {
+        bottom: 25% !important;
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+        max-width: 80%;
+        text-align: center;
+    }
+
+    /* Hide debug panels */
     #marching-panel, #debug-panel {
         display: none !important;
+    }
+
+    /* Weapon wheel - scale down */
+    #weapon-wheel {
+        transform: translate(-50%, -50%) scale(0.8) !important;
+    }
+}
+
+/* Extra-small screens (iPhone SE, older devices) */
+@media (max-width: 400px) {
+    #login-panel {
+        width: 92%;
+    }
+
+    #login-step-1 {
+        padding: 22px 16px 20px;
+    }
+
+    #login-step-1 h2 {
+        font-size: 14px;
+        margin-bottom: 14px;
+    }
+
+    #welcome-panel {
+        width: 94% !important;
+        padding: 16px !important;
+    }
+
+    #welcome-panel ul {
+        font-size: 12px !important;
+    }
+
+    #mobile-buttons {
+        right: 8px !important;
+        bottom: 8px !important;
+        gap: 8px !important;
+    }
+
+    #mobile-btn-jump {
+        width: 56px !important;
+        height: 56px !important;
+    }
+
+    #mobile-btn-e {
+        width: 48px !important;
+        height: 48px !important;
+    }
+
+    #mobile-btn-inv,
+    #mobile-btn-drop,
+    #mobile-btn-chat {
+        width: 42px !important;
+        height: 42px !important;
+        font-size: 9px !important;
+    }
+
+    #chat-messages {
+        height: 100px;
+    }
+}
+
+/* Landscape mode on mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+    #login-panel {
+        max-width: 300px;
+    }
+
+    #login-step-1 {
+        padding: 16px;
+    }
+
+    #login-step-1 h2 {
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+
+    #welcome-panel {
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+        width: 50% !important;
+        padding: 16px !important;
+    }
+
+    #mobile-buttons {
+        bottom: 8px !important;
+        right: 8px !important;
+    }
+
+    #chat-messages {
+        height: 80px;
     }
 }
 
