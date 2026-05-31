@@ -2116,8 +2116,8 @@
                     var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
                     direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
 
-                    // Rotate boat to face movement direction (fast snap, fix backward driving with + PI)
-                    var targetYaw = Math.atan2(direction.x, direction.z) + Math.PI;
+                    // Rotate boat to face movement direction (fast snap)
+                    var targetYaw = Math.atan2(direction.x, direction.z);
                     var diff = targetYaw - boat.rotation.y;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;

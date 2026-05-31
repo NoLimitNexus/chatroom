@@ -857,7 +857,7 @@ window.ObjectFactory = {
             const oarBladeMat = c.oarBladeMat;
 
             const visualGroup = new THREE.Group();
-            visualGroup.rotation.y = Math.PI / 2;
+            visualGroup.rotation.y = -Math.PI / 2;
             group.add(visualGroup);
 
             // Bottom hull
