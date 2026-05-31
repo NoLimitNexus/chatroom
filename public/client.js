@@ -1306,15 +1306,16 @@
                             }
                         }
                     }
-                    if (foundLand) {
-                        boatState.active = false;
-                        stopGathering(); // stop fishing if active
-                        myCharacter.position.set(bestX, getTerrainHeight(bestX, bestZ), bestZ);
-                        boatState.boatGroup = null;
-                        addChatMessage('System', 'Disembarked from the boat.', 0x4fc3f7);
-                    } else {
-                        addChatMessage('System', 'Too far from shore to disembark.', 0xffaa00);
+                    if (!foundLand) {
+                        // Plop them in the water next to the boat
+                        bestX = boat.position.x + Math.cos(boat.rotation.y + Math.PI/2) * 2;
+                        bestZ = boat.position.z + Math.sin(boat.rotation.y + Math.PI/2) * 2;
                     }
+                    boatState.active = false;
+                    stopGathering(); // stop fishing if active
+                    myCharacter.position.set(bestX, getTerrainHeight(bestX, bestZ), bestZ);
+                    boatState.boatGroup = null;
+                    addChatMessage('System', 'Disembarked from the boat.', 0x4fc3f7);
                 }
             } else {
                 if (nearestInteractable && !inventoryOpen) interactWithNearest();
