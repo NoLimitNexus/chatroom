@@ -20718,6 +20718,1950 @@
         "y": 1,
         "z": 1
       }
+    },
+    {
+      "id": "boat_lake_0",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 20,
+        "y": -1.2,
+        "z": -25
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 20,
+        "y": -1.2,
+        "z": -25
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_1",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -40,
+        "y": -1.2,
+        "z": -5
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -40,
+        "y": -1.2,
+        "z": -5
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_2",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -155,
+        "y": -1.2,
+        "z": -242
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -155,
+        "y": -1.2,
+        "z": -242
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_3",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -140,
+        "y": -1.2,
+        "z": -244
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -140,
+        "y": -1.2,
+        "z": -244
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_4",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -25,
+        "y": -1.2,
+        "z": -240
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -25,
+        "y": -1.2,
+        "z": -240
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_5",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -10,
+        "y": -1.2,
+        "z": -240
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -10,
+        "y": -1.2,
+        "z": -240
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_6",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 90,
+        "y": -1.2,
+        "z": -236
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 90,
+        "y": -1.2,
+        "z": -236
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_7",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 105,
+        "y": -1.2,
+        "z": -238
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 105,
+        "y": -1.2,
+        "z": -238
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_8",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 210,
+        "y": -1.2,
+        "z": -240
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 210,
+        "y": -1.2,
+        "z": -240
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_9",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 225,
+        "y": -1.2,
+        "z": -242
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 225,
+        "y": -1.2,
+        "z": -242
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_10",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -215,
+        "y": -1.2,
+        "z": -190
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -215,
+        "y": -1.2,
+        "z": -190
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_11",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -225,
+        "y": -1.2,
+        "z": -195
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -225,
+        "y": -1.2,
+        "z": -195
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_12",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -105,
+        "y": -1.2,
+        "z": -190
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -105,
+        "y": -1.2,
+        "z": -190
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_13",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -100,
+        "y": -1.2,
+        "z": -195
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -100,
+        "y": -1.2,
+        "z": -195
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_14",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 20,
+        "y": -1.2,
+        "z": -190
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 20,
+        "y": -1.2,
+        "z": -190
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_15",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 35,
+        "y": -1.2,
+        "z": -192
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 35,
+        "y": -1.2,
+        "z": -192
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_16",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 145,
+        "y": -1.2,
+        "z": -190
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 145,
+        "y": -1.2,
+        "z": -190
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_17",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 160,
+        "y": -1.2,
+        "z": -188
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 160,
+        "y": -1.2,
+        "z": -188
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_18",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -155,
+        "y": -1.2,
+        "z": -128
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -155,
+        "y": -1.2,
+        "z": -128
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_19",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -170,
+        "y": -1.2,
+        "z": -120
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -170,
+        "y": -1.2,
+        "z": -120
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_20",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -35,
+        "y": -1.2,
+        "z": -130
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -35,
+        "y": -1.2,
+        "z": -130
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_21",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -25,
+        "y": -1.2,
+        "z": -135
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -25,
+        "y": -1.2,
+        "z": -135
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_22",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 78,
+        "y": -1.2,
+        "z": -125
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 78,
+        "y": -1.2,
+        "z": -125
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_23",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 82,
+        "y": -1.2,
+        "z": -120
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 82,
+        "y": -1.2,
+        "z": -120
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_24",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 210,
+        "y": -1.2,
+        "z": -130
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 210,
+        "y": -1.2,
+        "z": -130
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_25",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 220,
+        "y": -1.2,
+        "z": -135
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 220,
+        "y": -1.2,
+        "z": -135
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_26",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -235,
+        "y": -1.2,
+        "z": -65
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -235,
+        "y": -1.2,
+        "z": -65
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_27",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -240,
+        "y": -1.2,
+        "z": -55
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -240,
+        "y": -1.2,
+        "z": -55
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_28",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -95,
+        "y": -1.2,
+        "z": -72
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -95,
+        "y": -1.2,
+        "z": -72
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_29",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -85,
+        "y": -1.2,
+        "z": -68
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -85,
+        "y": -1.2,
+        "z": -68
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_30",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 35,
+        "y": -1.2,
+        "z": -60
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 35,
+        "y": -1.2,
+        "z": -60
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_31",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 38,
+        "y": -1.2,
+        "z": -50
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 38,
+        "y": -1.2,
+        "z": -50
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_32",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 148,
+        "y": -1.2,
+        "z": -60
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 148,
+        "y": -1.2,
+        "z": -60
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_33",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 155,
+        "y": -1.2,
+        "z": -55
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 155,
+        "y": -1.2,
+        "z": -55
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_34",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -148,
+        "y": -1.2,
+        "z": -5
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -148,
+        "y": -1.2,
+        "z": -5
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_35",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -155,
+        "y": -1.2,
+        "z": 5
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -155,
+        "y": -1.2,
+        "z": 5
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_36",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 75,
+        "y": -1.2,
+        "z": -2
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 75,
+        "y": -1.2,
+        "z": -2
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_37",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 78,
+        "y": -1.2,
+        "z": 10
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 78,
+        "y": -1.2,
+        "z": 10
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_38",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 228,
+        "y": -1.2,
+        "z": -5
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 228,
+        "y": -1.2,
+        "z": -5
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_39",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 232,
+        "y": -1.2,
+        "z": 8
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 232,
+        "y": -1.2,
+        "z": 8
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_40",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -220,
+        "y": -1.2,
+        "z": 65
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -220,
+        "y": -1.2,
+        "z": 65
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_41",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -230,
+        "y": -1.2,
+        "z": 55
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -230,
+        "y": -1.2,
+        "z": 55
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_42",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -100,
+        "y": -1.2,
+        "z": 60
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -100,
+        "y": -1.2,
+        "z": 60
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_43",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -95,
+        "y": -1.2,
+        "z": 70
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -95,
+        "y": -1.2,
+        "z": 70
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_44",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 18,
+        "y": -1.2,
+        "z": 62
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 18,
+        "y": -1.2,
+        "z": 62
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_45",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 15,
+        "y": -1.2,
+        "z": 72
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 15,
+        "y": -1.2,
+        "z": 72
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_46",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 160,
+        "y": -1.2,
+        "z": 58
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 160,
+        "y": -1.2,
+        "z": 58
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_47",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 165,
+        "y": -1.2,
+        "z": 68
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 165,
+        "y": -1.2,
+        "z": 68
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_48",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -158,
+        "y": -1.2,
+        "z": 140
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -158,
+        "y": -1.2,
+        "z": 140
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_49",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -165,
+        "y": -1.2,
+        "z": 145
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -165,
+        "y": -1.2,
+        "z": 145
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_50",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -28,
+        "y": -1.2,
+        "z": 125
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -28,
+        "y": -1.2,
+        "z": 125
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_51",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -20,
+        "y": -1.2,
+        "z": 120
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -20,
+        "y": -1.2,
+        "z": 120
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_52",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 95,
+        "y": -1.2,
+        "z": 125
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 95,
+        "y": -1.2,
+        "z": 125
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_53",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 100,
+        "y": -1.2,
+        "z": 130
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 100,
+        "y": -1.2,
+        "z": 130
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_54",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 210,
+        "y": -1.2,
+        "z": 125
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 210,
+        "y": -1.2,
+        "z": 125
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_55",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 215,
+        "y": -1.2,
+        "z": 130
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 215,
+        "y": -1.2,
+        "z": 130
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_56",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -218,
+        "y": -1.2,
+        "z": 188
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -218,
+        "y": -1.2,
+        "z": 188
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_57",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -225,
+        "y": -1.2,
+        "z": 195
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -225,
+        "y": -1.2,
+        "z": 195
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_58",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -88,
+        "y": -1.2,
+        "z": 195
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -88,
+        "y": -1.2,
+        "z": 195
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_59",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -95,
+        "y": -1.2,
+        "z": 200
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -95,
+        "y": -1.2,
+        "z": 200
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_60",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 35,
+        "y": -1.2,
+        "z": 188
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 35,
+        "y": -1.2,
+        "z": 188
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_61",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 40,
+        "y": -1.2,
+        "z": 195
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 40,
+        "y": -1.2,
+        "z": 195
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_62",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 148,
+        "y": -1.2,
+        "z": 188
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 148,
+        "y": -1.2,
+        "z": 188
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_63",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 145,
+        "y": -1.2,
+        "z": 195
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 145,
+        "y": -1.2,
+        "z": 195
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_64",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -152,
+        "y": -1.2,
+        "z": 240
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -152,
+        "y": -1.2,
+        "z": 240
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_65",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -165,
+        "y": -1.2,
+        "z": 238
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -165,
+        "y": -1.2,
+        "z": 238
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_66",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -28,
+        "y": -1.2,
+        "z": 238
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -28,
+        "y": -1.2,
+        "z": 238
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_67",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": -15,
+        "y": -1.2,
+        "z": 240
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": -15,
+        "y": -1.2,
+        "z": 240
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_68",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 85,
+        "y": -1.2,
+        "z": 238
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 85,
+        "y": -1.2,
+        "z": 238
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_69",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 95,
+        "y": -1.2,
+        "z": 235
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 95,
+        "y": -1.2,
+        "z": 235
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_70",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 218,
+        "y": -1.2,
+        "z": 238
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 218,
+        "y": -1.2,
+        "z": 238
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "boat_lake_71",
+      "type": "Boat",
+      "name": "",
+      "tags": [],
+      "position": {
+        "x": 225,
+        "y": -1.2,
+        "z": 242
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "spawnPos": {
+        "x": 225,
+        "y": -1.2,
+        "z": 242
+      },
+      "spawnRot": 0,
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
     }
   ]
 }
