@@ -286,13 +286,30 @@
             }
         });
 
-        // Check campfires
+        // Check campfires and balloons
         environmentObjects.forEach(obj => {
             if (obj.userData.type === 'Campfire') {
                 const dist = myCharacter.position.distanceTo(obj.position);
                 if (dist < 7.0 && dist < closestDist) {
                     closestDist = dist;
                     closestItem = obj;
+                }
+            } else if (obj.userData.type === 'Balloon') {
+                if (balloonState.active && balloonState.balloonGroup === obj) return;
+                
+                // Allow interaction if grounded or station
+                let isGrounded = true;
+                if (obj.userData.updatable) {
+                    const phase = obj.userData.updatable._phase;
+                    isGrounded = (phase === 'grounded' || phase === 'station');
+                }
+                
+                if (isGrounded) {
+                    const dist = myCharacter.position.distanceTo(obj.position);
+                    if (dist < 8.0 && dist < closestDist) {
+                        closestDist = dist;
+                        closestItem = obj;
+                    }
                 }
             }
         });
@@ -329,8 +346,23 @@
         
         if (balloonState.active && !inventoryOpen) {
             promptEl.style.display = 'block';
-            document.getElementById('interaction-action').innerText = 'dismount';
-            document.getElementById('interaction-item-name').innerText = 'Balloon';
+            
+            // Check if balloon is at station
+            let phase = null;
+            if (balloonState.balloonGroup && balloonState.balloonGroup.userData.updatable) {
+                phase = balloonState.balloonGroup.userData.updatable._phase;
+            }
+            
+            if (phase === 'station') {
+                document.getElementById('interaction-action').innerText = 'fly [E] or dismount [Shift+E]';
+                document.getElementById('interaction-item-name').innerText = 'Balloon';
+            } else if (phase === 'grounded') {
+                document.getElementById('interaction-action').innerText = 'dismount [E] or wait to fly';
+                document.getElementById('interaction-item-name').innerText = 'Balloon';
+            } else {
+                document.getElementById('interaction-action').innerText = 'dismount (wait to land)';
+                document.getElementById('interaction-item-name').innerText = 'Balloon';
+            }
         } else if (boatState.active && !inventoryOpen) {
             promptEl.style.display = 'block';
             if (nearestInteractable && nearestInteractable.userData && nearestInteractable.userData.action === 'fishing') {
@@ -427,7 +459,7 @@
                     balloonWrapper.position.y + 1.0,
                     balloonWrapper.position.z
                 );
-                addChatMessage('System', 'Boarded the balloon! Enjoy the ride. Press E to dismount when grounded.', 0x4fc3f7);
+                addChatMessage('System', 'Boarded the balloon! Press E to start flight, or Shift+E to dismount.', 0x4fc3f7);
                 nearestInteractable = null;
                 updateInteractionPrompt();
             }
@@ -1314,18 +1346,27 @@
         if (e.code === 'Space' && state.jumpTime < 0) state.jumpTime = 0;
         if (e.code === 'KeyC') state.isCrouching = !state.isCrouching;
         if (e.code === 'KeyE') {
-            // If on a balloon, E = dismount (only when grounded)
+            // If on a balloon, E = start flight, Shift+E = dismount (when grounded)
             if (balloonState.active && balloonState.balloonGroup) {
                 var balloon = balloonState.balloonGroup;
                 var updatable = balloon.userData.updatable;
-                var isGrounded = !updatable || updatable._phase === 'grounded';
+                var isGrounded = !updatable || updatable._phase === 'grounded' || updatable._phase === 'station';
+                
                 if (isGrounded) {
-                    balloonState.active = false;
-                    var bx = balloon.position.x, bz = balloon.position.z;
-                    var groundY = getTerrainHeight(bx + 2, bz);
-                    myCharacter.position.set(bx + 2, groundY, bz);
-                    balloonState.balloonGroup = null;
-                    addChatMessage('System', 'Dismounted from the balloon.', 0x4fc3f7);
+                    if (updatable._phase === 'grounded' || e.shiftKey) {
+                        balloonState.active = false;
+                        var bx = balloon.position.x, bz = balloon.position.z;
+                        var groundY = getTerrainHeight(bx + 2, bz);
+                        myCharacter.position.set(bx + 2, groundY, bz);
+                        balloonState.balloonGroup = null;
+                        addChatMessage('System', 'Dismounted from the balloon.', 0x4fc3f7);
+                    } else {
+                        if (updatable) {
+                            updatable.startFlight();
+                            addChatMessage('System', 'Starting flight!', 0x4fc3f7);
+                            updateInteractionPrompt();
+                        }
+                    }
                 } else {
                     addChatMessage('System', 'Wait until the balloon lands to dismount!', 0xff8888);
                 }

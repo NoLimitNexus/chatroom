@@ -1091,16 +1091,22 @@ window.ObjectFactory = {
                 _baseY: null,
                 _spawnX: null,
                 _spawnZ: null,
-                _phase: 'grounded',  // grounded -> rising -> wandering -> descending -> grounded
+                _phase: 'station',  // station -> rising -> wandering -> descending -> station
                 _timer: 0,
                 _groundTime: 15,     // seconds on ground before takeoff
                 _riseTime: 8,        // seconds to rise
                 _wanderTime: 60,     // seconds in the sky
                 _descendTime: 10,    // seconds to descend
-                _maxAlt: 25,         // max flight altitude
+                _maxAlt: 30,         // max flight altitude
                 _wanderTarget: null,
-                _wanderSpeed: 4,
+                _wanderSpeed: 3.5,
                 _currentAlt: 0,
+                startFlight: function() {
+                    if (this._phase === 'station' || this._phase === 'grounded') {
+                        this._phase = 'rising';
+                        this._timer = 0;
+                    }
+                },
                 update: function(t, delta) {
                     if (this._baseY === null) {
                         this._baseY = this._group.position.y;
@@ -1115,10 +1121,15 @@ window.ObjectFactory = {
                     this._envelope.rotation.x = Math.cos(t * 0.4) * 0.02;
 
                     switch (this._phase) {
+                        case 'station':
+                            this._group.position.y = this._baseY;
+                            // Wait for startFlight()
+                            break;
+
                         case 'grounded':
                             this._group.position.y = this._baseY;
                             if (this._timer > this._groundTime) {
-                                this._phase = 'rising';
+                                this._phase = 'station';
                                 this._timer = 0;
                             }
                             break;
