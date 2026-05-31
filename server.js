@@ -176,7 +176,7 @@ syncFromProd(); // Initial sync on startup
 // ----------------------------------------------------
 // AUTO-RETURN BOATS LOGIC (2 MINUTES IDLE)
 // ----------------------------------------------------
-const BOAT_RETURN_TIMEOUT = 20000; // 20 seconds
+const BOAT_RETURN_TIMEOUT = 120000; // 2 minutes
 const BOAT_RETURN_SPEED = 3.0; // meters per sec
 
 setInterval(() => {
@@ -196,7 +196,7 @@ setInterval(() => {
             const dz = state.spawnPos.z - obj.position.z;
             const dist = Math.hypot(dx, dz);
 
-            if (dist > 30.0) {
+            if (dist > 2000.0) {
                 // Teleport if too far
                 state.returning = false;
                 obj.position.x = state.spawnPos.x;
