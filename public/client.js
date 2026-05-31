@@ -246,6 +246,13 @@
         boatSpeed: 6.0,
         boatSprintSpeed: 10.0
     };
+
+    // Balloon riding state
+    var balloonState = {
+        active: false,
+        balloonGroup: null   // The THREE.Group of the balloon we're riding
+    };
+
     var boatObjects = [];    // All spawned boat groups (for interaction raycasting)
 
     // Check nearest interactables (items, fishing spots, campfires, boats) near player
@@ -320,7 +327,11 @@
         const promptEl = document.getElementById('interaction-prompt');
         if (!promptEl) return;
         
-        if (boatState.active && !inventoryOpen) {
+        if (balloonState.active && !inventoryOpen) {
+            promptEl.style.display = 'block';
+            document.getElementById('interaction-action').innerText = 'dismount';
+            document.getElementById('interaction-item-name').innerText = 'Balloon';
+        } else if (boatState.active && !inventoryOpen) {
             promptEl.style.display = 'block';
             if (nearestInteractable && nearestInteractable.userData && nearestInteractable.userData.action === 'fishing') {
                 document.getElementById('interaction-action').innerText = 'fish from';
@@ -340,6 +351,9 @@
             } else if (nearestInteractable.userData && nearestInteractable.userData.action === 'boat') {
                 document.getElementById('interaction-action').innerText = 'board';
                 document.getElementById('interaction-item-name').innerText = 'Boat';
+            } else if (nearestInteractable.userData && nearestInteractable.userData.action === 'balloon') {
+                document.getElementById('interaction-action').innerText = 'board';
+                document.getElementById('interaction-item-name').innerText = 'Balloon';
             } else if (nearestInteractable.userData && nearestInteractable.userData.type === 'Campfire') {
                 document.getElementById('interaction-action').innerText = 'use';
                 document.getElementById('interaction-item-name').innerText = 'Campfire (Cook)';
@@ -396,6 +410,24 @@
                     boatState.boatGroup.position.z
                 );
                 addChatMessage('System', 'Boarded the boat! WASD to sail, press E near land to disembark.', 0x4fc3f7);
+                nearestInteractable = null;
+                updateInteractionPrompt();
+            }
+        } else if (pickup.userData && pickup.userData.action === 'balloon') {
+            // Find parent group
+            let curr = pickup;
+            while (curr && !curr.userData.isEnvironmentObject) curr = curr.parent;
+            const balloonWrapper = curr || pickup;
+
+            if (!balloonState.active) {
+                balloonState.active = true;
+                balloonState.balloonGroup = balloonWrapper;
+                myCharacter.position.set(
+                    balloonWrapper.position.x,
+                    balloonWrapper.position.y + 1.0,
+                    balloonWrapper.position.z
+                );
+                addChatMessage('System', 'Boarded the balloon! Enjoy the ride. Press E to dismount when grounded.', 0x4fc3f7);
                 nearestInteractable = null;
                 updateInteractionPrompt();
             }
@@ -801,6 +833,7 @@
                 environmentObjects.push(wrapper);
                 if (factoryObj.updatable) {
                     environmentUpdatables.push(factoryObj.updatable);
+                    wrapper.userData.updatable = factoryObj.updatable;
                 }
 
                 // Register FishingSpot objects for interaction
@@ -824,6 +857,12 @@
                     wrapper.userData.action = 'boat';
                     boatObjects.push(wrapper);
                 }
+
+                // Register Balloon objects for interaction
+                if (data.type === 'Balloon') {
+                    wrapper.userData.interactable = true;
+                    wrapper.userData.action = 'balloon';
+                }
             }
         }
     }
@@ -831,9 +870,12 @@
     function clearEnvironmentObjects() {
         const activeBoatGroup = boatState.boatGroup;
         const activeBoatUpdatable = activeBoatGroup ? environmentUpdatables.find(u => u._group === activeBoatGroup) : null;
+        const activeBalloonGroup = balloonState.balloonGroup;
+        const activeBalloonUpdatable = activeBalloonGroup ? environmentUpdatables.find(u => u._group === activeBalloonGroup) : null;
 
         environmentObjects.forEach(obj => {
             if (activeBoatGroup && obj === activeBoatGroup) return;
+            if (activeBalloonGroup && obj === activeBalloonGroup) return;
             scene.remove(obj);
             obj.traverse(child => {
                 if (child.geometry) child.geometry.dispose();
@@ -844,8 +886,12 @@
             });
         });
         
-        environmentObjects = activeBoatGroup ? [activeBoatGroup] : [];
-        environmentUpdatables = activeBoatUpdatable ? [activeBoatUpdatable] : [];
+        const keepObjs = [];
+        const keepUpd = [];
+        if (activeBoatGroup) { keepObjs.push(activeBoatGroup); if (activeBoatUpdatable) keepUpd.push(activeBoatUpdatable); }
+        if (activeBalloonGroup) { keepObjs.push(activeBalloonGroup); if (activeBalloonUpdatable) keepUpd.push(activeBalloonUpdatable); }
+        environmentObjects = keepObjs;
+        environmentUpdatables = keepUpd;
         fishingSpots = [];
         boatObjects = activeBoatGroup ? [activeBoatGroup] : [];
     }
@@ -1268,8 +1314,23 @@
         if (e.code === 'Space' && state.jumpTime < 0) state.jumpTime = 0;
         if (e.code === 'KeyC') state.isCrouching = !state.isCrouching;
         if (e.code === 'KeyE') {
+            // If on a balloon, E = dismount (only when grounded)
+            if (balloonState.active && balloonState.balloonGroup) {
+                var balloon = balloonState.balloonGroup;
+                var updatable = balloon.userData.updatable;
+                var isGrounded = !updatable || updatable._phase === 'grounded';
+                if (isGrounded) {
+                    balloonState.active = false;
+                    var bx = balloon.position.x, bz = balloon.position.z;
+                    var groundY = getTerrainHeight(bx + 2, bz);
+                    myCharacter.position.set(bx + 2, groundY, bz);
+                    balloonState.balloonGroup = null;
+                    addChatMessage('System', 'Dismounted from the balloon.', 0x4fc3f7);
+                } else {
+                    addChatMessage('System', 'Wait until the balloon lands to dismount!', 0xff8888);
+                }
             // If on a boat, E = disembark (or fish if near a fishing spot)
-            if (boatState.active && boatState.boatGroup) {
+            } else if (boatState.active && boatState.boatGroup) {
                 // Check if near a fishing spot first — prioritize fishing
                 if (nearestInteractable && nearestInteractable.userData && nearestInteractable.userData.action === 'fishing') {
                     interactWithNearest();
@@ -1993,8 +2054,20 @@
                     addChatMessage('System', 'Moved too far from fishing spot.', 0xff9800);
                 }
             }
+            // ---- BALLOON RIDING MODE ----
+            if (balloonState.active && balloonState.balloonGroup) {
+                var balloon = balloonState.balloonGroup;
+                // Lock player to balloon basket
+                myCharacter.position.set(
+                    balloon.position.x,
+                    balloon.position.y + 1.0,
+                    balloon.position.z
+                );
+                myCharacter.rotation.y = balloon.rotation.y;
+                state.baseY = myCharacter.position.y;
+
             // ---- BOAT RIDING MODE ----
-            if (boatState.active && boatState.boatGroup) {
+            } else if (boatState.active && boatState.boatGroup) {
                 var boat = boatState.boatGroup;
                 if (isMoving) {
 
@@ -2084,7 +2157,7 @@
             // ---- NORMAL WALKING MODE ----
             } else if (isMoving) {
                 // --- EXACT speed from Unified Workspace (line 2476) ---
-                var speed = isSprinting ? 0.22 : 0.1;
+                var speed = isSprinting ? 0.40 : 0.22;
 
                 // --- EXACT direction calc from Unified Workspace (line 2478-2479) ---
                 var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();

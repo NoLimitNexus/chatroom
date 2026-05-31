@@ -22,6 +22,7 @@ window.ObjectFactory = {
         'Bush':        { icon: '🌿', category: 'Nature' },
         'FishingSpot': { icon: '🐟', category: 'Interactive' },
         'Boat':        { icon: '⛵', category: 'Interactive' },
+        'Balloon':     { icon: '🎈', category: 'Interactive' },
         'Barrel':      { icon: '🛢️', category: 'Props' },
         'Crate':       { icon: '📦', category: 'Props' },
         'Fence':       { icon: '🏗️', category: 'Structures' }
@@ -948,6 +949,255 @@ window.ObjectFactory = {
                     this._group.position.y = this._baseY + Math.sin(t * 1.5) * 0.05;
                     visualGroup.rotation.x = Math.sin(t * 2.0) * 0.03;
                     visualGroup.rotation.z = Math.cos(t * 1.2) * 0.02;
+                }
+            };
+            break;
+        }
+
+        // ---- HOT AIR BALLOON ----
+        case 'Balloon': {
+            group = new THREE.Group();
+            group.userData.interactable = true;
+            group.userData.action = 'balloon';
+            group.userData.type = 'Balloon';
+
+            // --- Envelope (the big colorful top) ---
+            const envelopeGroup = new THREE.Group();
+            const envelopeGeo = new THREE.SphereGeometry(3, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
+            const panelColors = [0xCC2222, 0xE8A820, 0x2255AA, 0xCC2222, 0xE8A820, 0x2255AA, 0xCC2222, 0xE8A820];
+            // Create multi-colored panels by using a single material with vertex colors
+            const envelopeMat = new THREE.MeshStandardMaterial({ 
+                color: 0xCC3333, roughness: 0.6, metalness: 0.05, side: THREE.DoubleSide 
+            });
+            const envelope = new THREE.Mesh(envelopeGeo, envelopeMat);
+            envelope.position.y = 8.5;
+            envelope.scale.set(1, 1.3, 1);
+            envelopeGroup.add(envelope);
+
+            // Stripe bands on the envelope
+            const bandGeo = new THREE.TorusGeometry(2.95, 0.08, 6, 24);
+            const bandColors = [0xE8A820, 0x2255AA, 0xE8A820];
+            [7.5, 8.5, 9.5].forEach((y, i) => {
+                const band = new THREE.Mesh(bandGeo, new THREE.MeshStandardMaterial({ 
+                    color: bandColors[i], roughness: 0.5 
+                }));
+                band.position.y = y;
+                band.rotation.x = Math.PI / 2;
+                const bandScale = 1.0 - Math.abs(y - 8.5) * 0.08;
+                band.scale.set(bandScale, bandScale, 1);
+                envelopeGroup.add(band);
+            });
+
+            // Crown (top cap)
+            const crownGeo = new THREE.SphereGeometry(0.6, 12, 6);
+            const crown = new THREE.Mesh(crownGeo, new THREE.MeshStandardMaterial({ color: 0xE8A820, roughness: 0.5 }));
+            crown.position.y = 12.2;
+            envelopeGroup.add(crown);
+
+            // Skirt (bottom opening)
+            const skirtGeo = new THREE.CylinderGeometry(2.0, 2.2, 0.6, 16, 1, true);
+            const skirt = new THREE.Mesh(skirtGeo, new THREE.MeshStandardMaterial({ 
+                color: 0x993322, roughness: 0.7, side: THREE.DoubleSide 
+            }));
+            skirt.position.y = 5.2;
+            envelopeGroup.add(skirt);
+
+            group.add(envelopeGroup);
+
+            // --- Rigging ropes ---
+            const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.9 });
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const topX = Math.cos(angle) * 1.8;
+                const topZ = Math.sin(angle) * 1.8;
+                const botX = Math.cos(angle) * 0.7;
+                const botZ = Math.sin(angle) * 0.7;
+                const ropeLen = Math.sqrt((topX - botX) ** 2 + 16 + (topZ - botZ) ** 2);
+                const ropeGeo = new THREE.CylinderGeometry(0.02, 0.02, ropeLen, 4);
+                const rope = new THREE.Mesh(ropeGeo, ropeMat);
+                rope.position.set((topX + botX) / 2, (5.2 + 1.2) / 2, (topZ + botZ) / 2);
+                rope.lookAt(new THREE.Vector3(botX, 1.2, botZ));
+                rope.rotateX(Math.PI / 2);
+                group.add(rope);
+            }
+
+            // --- Basket ---
+            const basketGroup = new THREE.Group();
+            const basketMat = new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.85 });
+
+            // Basket walls (wicker look)
+            const basketWallGeo = new THREE.CylinderGeometry(0.8, 0.7, 1.0, 8, 1, true);
+            const basketWall = new THREE.Mesh(basketWallGeo, basketMat);
+            basketWall.position.y = 1.2;
+            basketGroup.add(basketWall);
+
+            // Basket floor
+            const basketFloorGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.08, 8);
+            const basketFloor = new THREE.Mesh(basketFloorGeo, new THREE.MeshStandardMaterial({ color: 0x6B4226, roughness: 0.9 }));
+            basketFloor.position.y = 0.7;
+            basketGroup.add(basketFloor);
+
+            // Basket rim
+            const rimGeo = new THREE.TorusGeometry(0.8, 0.04, 6, 16);
+            const rim = new THREE.Mesh(rimGeo, new THREE.MeshStandardMaterial({ color: 0x5C4010, roughness: 0.7 }));
+            rim.position.y = 1.7;
+            rim.rotation.x = Math.PI / 2;
+            basketGroup.add(rim);
+
+            // Burner frame (uprights)
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.8 });
+            for (let i = 0; i < 4; i++) {
+                const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+                const poleGeo = new THREE.CylinderGeometry(0.025, 0.025, 3.5, 4);
+                const pole = new THREE.Mesh(poleGeo, frameMat);
+                pole.position.set(Math.cos(a) * 0.6, 3.4, Math.sin(a) * 0.6);
+                basketGroup.add(pole);
+            }
+
+            // Burner nozzle
+            const burnerGeo = new THREE.CylinderGeometry(0.15, 0.1, 0.3, 8);
+            const burner = new THREE.Mesh(burnerGeo, frameMat);
+            burner.position.y = 5.0;
+            basketGroup.add(burner);
+
+            // Sandbags
+            const sandbagGeo = new THREE.SphereGeometry(0.12, 6, 4);
+            const sandbagMat = new THREE.MeshStandardMaterial({ color: 0x8B7D6B, roughness: 0.95 });
+            for (let i = 0; i < 3; i++) {
+                const a = (i / 3) * Math.PI * 2;
+                const bag = new THREE.Mesh(sandbagGeo, sandbagMat);
+                bag.position.set(Math.cos(a) * 0.85, 0.9, Math.sin(a) * 0.85);
+                bag.scale.set(1, 0.7, 1);
+                basketGroup.add(bag);
+            }
+
+            group.add(basketGroup);
+
+            // Hit cylinder for interaction
+            const balloonHitGeo = new THREE.CylinderGeometry(2.5, 2.5, 14, 8);
+            const balloonHitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const balloonHit = new THREE.Mesh(balloonHitGeo, balloonHitMat);
+            balloonHit.position.y = 6;
+            balloonHit.userData.interactable = true;
+            balloonHit.userData.action = 'balloon';
+            balloonHit.userData.type = 'Balloon';
+            balloonHit.userData.parentGroup = group;
+            group.add(balloonHit);
+
+            // --- Balloon lifecycle updatable ---
+            updatable = {
+                _group: group,
+                _envelope: envelopeGroup,
+                _baseY: null,
+                _spawnX: null,
+                _spawnZ: null,
+                _phase: 'grounded',  // grounded -> rising -> wandering -> descending -> grounded
+                _timer: 0,
+                _groundTime: 15,     // seconds on ground before takeoff
+                _riseTime: 8,        // seconds to rise
+                _wanderTime: 60,     // seconds in the sky
+                _descendTime: 10,    // seconds to descend
+                _maxAlt: 25,         // max flight altitude
+                _wanderTarget: null,
+                _wanderSpeed: 4,
+                _currentAlt: 0,
+                update: function(t, delta) {
+                    if (this._baseY === null) {
+                        this._baseY = this._group.position.y;
+                        this._spawnX = this._group.position.x;
+                        this._spawnZ = this._group.position.z;
+                    }
+
+                    this._timer += delta;
+
+                    // Gentle sway always
+                    this._envelope.rotation.z = Math.sin(t * 0.5) * 0.03;
+                    this._envelope.rotation.x = Math.cos(t * 0.4) * 0.02;
+
+                    switch (this._phase) {
+                        case 'grounded':
+                            this._group.position.y = this._baseY;
+                            if (this._timer > this._groundTime) {
+                                this._phase = 'rising';
+                                this._timer = 0;
+                            }
+                            break;
+
+                        case 'rising': {
+                            const riseProgress = Math.min(this._timer / this._riseTime, 1);
+                            const eased = riseProgress * riseProgress * (3 - 2 * riseProgress); // smoothstep
+                            this._currentAlt = eased * this._maxAlt;
+                            this._group.position.y = this._baseY + this._currentAlt;
+                            if (riseProgress >= 1) {
+                                this._phase = 'wandering';
+                                this._timer = 0;
+                                this._wanderTarget = null;
+                            }
+                            break;
+                        }
+
+                        case 'wandering': {
+                            // Pick a random target within map bounds
+                            if (!this._wanderTarget || this._wanderTarget.reached) {
+                                const mapBound = 220;
+                                this._wanderTarget = {
+                                    x: (Math.random() - 0.5) * 2 * mapBound,
+                                    z: (Math.random() - 0.5) * 2 * mapBound,
+                                    reached: false
+                                };
+                            }
+                            // Move toward target
+                            const dx = this._wanderTarget.x - this._group.position.x;
+                            const dz = this._wanderTarget.z - this._group.position.z;
+                            const dist = Math.sqrt(dx * dx + dz * dz);
+                            if (dist > 5) {
+                                this._group.position.x += (dx / dist) * this._wanderSpeed * delta;
+                                this._group.position.z += (dz / dist) * this._wanderSpeed * delta;
+                                // Rotate to face direction of travel
+                                const targetRot = Math.atan2(dx, dz);
+                                let rd = targetRot - this._group.rotation.y;
+                                while (rd < -Math.PI) rd += Math.PI * 2;
+                                while (rd > Math.PI) rd -= Math.PI * 2;
+                                this._group.rotation.y += rd * 0.5 * delta;
+                            } else {
+                                this._wanderTarget.reached = true;
+                            }
+                            // Gentle altitude bob
+                            this._group.position.y = this._baseY + this._maxAlt + Math.sin(t * 0.3) * 2;
+
+                            if (this._timer > this._wanderTime) {
+                                this._phase = 'descending';
+                                this._timer = 0;
+                            }
+                            break;
+                        }
+
+                        case 'descending': {
+                            const descProgress = Math.min(this._timer / this._descendTime, 1);
+                            const eased = descProgress * descProgress * (3 - 2 * descProgress);
+                            this._currentAlt = this._maxAlt * (1 - eased);
+                            this._group.position.y = this._baseY + this._currentAlt;
+
+                            // Drift back toward spawn
+                            const dx = this._spawnX - this._group.position.x;
+                            const dz = this._spawnZ - this._group.position.z;
+                            const dist = Math.sqrt(dx * dx + dz * dz);
+                            if (dist > 1) {
+                                const returnSpeed = dist / (this._descendTime - this._timer + 0.1);
+                                this._group.position.x += (dx / dist) * Math.min(returnSpeed, 15) * delta;
+                                this._group.position.z += (dz / dist) * Math.min(returnSpeed, 15) * delta;
+                            }
+
+                            if (descProgress >= 1) {
+                                this._group.position.x = this._spawnX;
+                                this._group.position.z = this._spawnZ;
+                                this._group.position.y = this._baseY;
+                                this._phase = 'grounded';
+                                this._timer = 0;
+                            }
+                            break;
+                        }
+                    }
                 }
             };
             break;
