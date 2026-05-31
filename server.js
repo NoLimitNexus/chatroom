@@ -71,7 +71,7 @@ if (fs.existsSync(MAP_FILE)) {
 }
 reinitBoatStates();
 if (!mapData.environment) {
-    mapData.environment = { timeOfDay: 12.0, timeSpeed: 0.1 }; // Default time speed: 0.1 (0.1 in game hours per real second = 240 seconds per game day? No, wait)
+    mapData.environment = { timeOfDay: 12.0, timeSpeed: 0.1, nightBrightness: 0.0 }; // Default time speed: 0.1 (0.1 in game hours per real second = 240 seconds per game day? No, wait)
 }
 
 // Tick time of day on server
@@ -336,6 +336,9 @@ io.on('connection', (socket) => {
         if (mapData.environment) {
             mapData.environment.timeOfDay = envData.timeOfDay;
             mapData.environment.timeSpeed = envData.timeSpeed;
+            if (envData.nightBrightness !== undefined) {
+                mapData.environment.nightBrightness = envData.nightBrightness;
+            }
             // Optionally broadcast immediately, but the 5s loop will handle it
             io.emit('timeSync', mapData.environment);
         }

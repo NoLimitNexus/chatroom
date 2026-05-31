@@ -923,6 +923,9 @@
                 if (data && data.environment) {
                     window.environmentTimeOfDay = data.environment.timeOfDay;
                     window.environmentTimeSpeed = data.environment.timeSpeed;
+                    if (data.environment.nightBrightness !== undefined) {
+                        window.environmentNightBrightness = data.environment.nightBrightness;
+                    }
                     if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
                 }
 
@@ -945,6 +948,9 @@
             window.environmentTimeOfDay = envData.timeOfDay;
         }
         window.environmentTimeSpeed = envData.timeSpeed;
+        if (envData.nightBrightness !== undefined) {
+            window.environmentNightBrightness = envData.nightBrightness;
+        }
     });
 
     // Listen for live map updates from the editor
@@ -955,6 +961,9 @@
         if (data && data.environment) {
             window.environmentTimeOfDay = data.environment.timeOfDay;
             window.environmentTimeSpeed = data.environment.timeSpeed;
+            if (data.environment.nightBrightness !== undefined) {
+                window.environmentNightBrightness = data.environment.nightBrightness;
+            }
             if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
         }
 

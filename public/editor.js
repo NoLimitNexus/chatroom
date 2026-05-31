@@ -429,7 +429,8 @@ function saveMap() {
         terrainOffsets,
         environment: {
             timeOfDay: window.environmentTimeOfDay !== undefined ? window.environmentTimeOfDay : 12.0,
-            timeSpeed: window.environmentTimeSpeed !== undefined ? window.environmentTimeSpeed : 1.0
+            timeSpeed: window.environmentTimeSpeed !== undefined ? window.environmentTimeSpeed : 1.0,
+            nightBrightness: window.environmentNightBrightness !== undefined ? window.environmentNightBrightness : 0.0
         },
         objects: environmentObjects.map(obj => {
             const isBoat = obj.userData.type === 'Boat';
@@ -1238,7 +1239,8 @@ document.getElementById('env-time').addEventListener('input', (e) => {
     if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
     socket.emit('updateEnvironment', { 
         timeOfDay: window.environmentTimeOfDay, 
-        timeSpeed: window.environmentTimeSpeed 
+        timeSpeed: window.environmentTimeSpeed,
+        nightBrightness: window.environmentNightBrightness || 0.0
     });
 });
 
@@ -1247,7 +1249,19 @@ document.getElementById('env-speed').addEventListener('input', (e) => {
     document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
     socket.emit('updateEnvironment', { 
         timeOfDay: window.environmentTimeOfDay, 
-        timeSpeed: window.environmentTimeSpeed 
+        timeSpeed: window.environmentTimeSpeed,
+        nightBrightness: window.environmentNightBrightness || 0.0
+    });
+});
+
+document.getElementById('env-night').addEventListener('input', (e) => {
+    window.environmentNightBrightness = parseFloat(e.target.value);
+    document.getElementById('env-night-val').innerText = Math.round(window.environmentNightBrightness * 100) + '%';
+    if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
+    socket.emit('updateEnvironment', { 
+        timeOfDay: window.environmentTimeOfDay, 
+        timeSpeed: window.environmentTimeSpeed,
+        nightBrightness: window.environmentNightBrightness 
     });
 });
 
@@ -1262,6 +1276,11 @@ socket.on('timeSync', function (envData) {
         document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
     }
     window.environmentTimeSpeed = envData.timeSpeed;
+    if (envData.nightBrightness !== undefined) {
+        window.environmentNightBrightness = envData.nightBrightness;
+        document.getElementById('env-night').value = window.environmentNightBrightness;
+        document.getElementById('env-night-val').innerText = Math.round(window.environmentNightBrightness * 100) + '%';
+    }
     document.getElementById('env-speed').value = window.environmentTimeSpeed;
     document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
     document.getElementById('env-speed').value = window.environmentTimeSpeed;
