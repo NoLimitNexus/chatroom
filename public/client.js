@@ -404,15 +404,26 @@
                 addChatMessage('System', 'Inventory full!', 0xff0000);
             }
         } else if (pickup.userData && pickup.userData.action === 'boat') {
+            // Find the parent group wrapper (the boat itself)
+            let curr = pickup;
+            while (curr && !curr.userData.isEnvironmentObject) {
+                curr = curr.parent;
+            }
+            const boatWrapper = curr || pickup;
+            
+            if (boatWrapper.userData.isTeleporting) {
+                addChatMessage('System', 'The boat is currently returning...', 0xff8888);
+                return;
+            }
+            if (performance.now() - (boatWrapper.userData.lastTeleportEndTime || 0) < 3000) {
+                addChatMessage('System', 'The boat is settling, please wait a moment.', 0xff8888);
+                return;
+            }
+
             // Board the boat
             if (!boatState.active) {
                 boatState.active = true;
-                // Find the parent group wrapper (the boat itself)
-                let curr = pickup;
-                while (curr && !curr.userData.isEnvironmentObject) {
-                    curr = curr.parent;
-                }
-                boatState.boatGroup = curr || pickup;
+                boatState.boatGroup = boatWrapper;
                 // Snap player onto boat
                 myCharacter.position.set(
                     boatState.boatGroup.position.x,
@@ -1522,11 +1533,15 @@
                 }
                 const newPos = new THREE.Vector3(d.x, d.y, d.z);
                 
-                // If it's a teleport (distance > 15), snap instantly
+                // If it's a teleport (distance > 15), teleport instantly
                 if (boat.position.distanceTo(newPos) > 15.0) {
                     boat.position.copy(newPos);
                     boat.rotation.y = d.ry;
+                    boat.userData.targetPosition.copy(newPos);
+                    boat.userData.targetRotationY = d.ry;
                     boat.userData.isLerping = false;
+                    boat.userData.isTeleporting = false;
+                    boat.userData.lastTeleportEndTime = performance.now();
                 } else {
                     boat.userData.targetPosition.copy(newPos);
                     boat.userData.targetRotationY = d.ry;
@@ -1611,25 +1626,27 @@
 
         for (let i = 0; i < environmentObjects.length; i++) {
             let obj = environmentObjects[i];
-            if (obj.userData.type === 'Boat' && obj.userData.isLerping) {
-                // Ignore the boat we are currently riding
-                if (!boatState.active || boatState.boatGroup !== obj) {
-                    obj.position.lerp(obj.userData.targetPosition, 0.05);
-                    
-                    let diff = obj.userData.targetRotationY - obj.rotation.y;
-                    while (diff < -Math.PI) diff += Math.PI * 2;
-                    while (diff > Math.PI) diff -= Math.PI * 2;
-                    obj.rotation.y += diff * 0.05;
-                    
-                    if (obj.position.distanceTo(obj.userData.targetPosition) < 0.05) {
-                        obj.position.copy(obj.userData.targetPosition);
-                        obj.rotation.y = obj.userData.targetRotationY;
-                        obj.userData.isLerping = false;
-                    }
+            if (obj.userData.type === 'Boat') {
+                if (obj.userData.isLerping) {
+                    // Ignore the boat we are currently riding
+                    if (!boatState.active || boatState.boatGroup !== obj) {
+                        obj.position.lerp(obj.userData.targetPosition, 0.05);
+                        
+                        let diff = obj.userData.targetRotationY - obj.rotation.y;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+                        obj.rotation.y += diff * 0.05;
+                        
+                        if (obj.position.distanceTo(obj.userData.targetPosition) < 0.05) {
+                            obj.position.copy(obj.userData.targetPosition);
+                            obj.rotation.y = obj.userData.targetRotationY;
+                            obj.userData.isLerping = false;
+                        }
 
-                    // Add wakes for visually moving boats
-                    if (window.RippleWater && Math.random() < 0.2) {
-                        window.RippleWater.addDrop(renderer, obj.position.x, obj.position.z, 2.0, 0.1);
+                        // Add wakes for visually moving boats
+                        if (window.RippleWater && Math.random() < 0.2) {
+                            window.RippleWater.addDrop(renderer, obj.position.x, obj.position.z, 2.0, 0.1);
+                        }
                     }
                 }
             }
@@ -1984,6 +2001,8 @@
             }
         }
 
+        // Heartbeat extracted to independent setInterval
+
         if ((isLocked || inventoryOpen || isMobile) && myCharacter) {
             // --- EXACT input from Unified Workspace (line 2469-2470) ---
             var keyMoveZ = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
@@ -2082,12 +2101,6 @@
                 }
                 
                 // Heartbeat so the server knows the boat is still occupied
-                if (typeof window.lastBoatOccupiedEmit === 'undefined') window.lastBoatOccupiedEmit = 0;
-                if (time - window.lastBoatOccupiedEmit > 2000) {
-                    socket.emit('boatOccupied', boat.userData.id);
-                    window.lastBoatOccupiedEmit = time;
-                }
-
                 // Snap player to boat position (always)
                 myCharacter.position.set(boat.position.x, boat.position.y + 0.5, boat.position.z);
                 myCharacter.rotation.y = boat.rotation.y;
@@ -2521,5 +2534,12 @@
     } else {
         initMobileControls();
     }
+    
+    // Independent heartbeat to keep boat active even when browser throttles rAF in background
+    setInterval(() => {
+        if (boatState.active && boatState.boatGroup) {
+            socket.emit('boatOccupied', boatState.boatGroup.userData.id);
+        }
+    }, 2000);
 
 })();

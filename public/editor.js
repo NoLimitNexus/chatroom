@@ -1370,6 +1370,9 @@ function animate() {
     // ---- Updatables (campfires, torches, etc.) ----
     updatables.forEach(u => u.update && u.update(t, dt));
 
+    // ---- Animate Teleporting Environment Objects ----
+    // Teleportation animations have been disabled.
+
     if (window.sharedWater) window.sharedWater.material.uniforms['time'].value += dt;
     if (window.RippleWater) window.RippleWater.update(renderer);
     if (window.sharedClouds) window.sharedClouds.rotation.y += 0.0005;

@@ -18,6 +18,7 @@ files_to_upload = [
     'public/index.html',
     'public/style.css',
     'public/studio.html',
+    'public/studio.js',
     'public/editor.html',
     'public/editor.js',
     'public/ObjectFactory.js',
@@ -25,7 +26,11 @@ files_to_upload = [
     'public/ripples.js',
     'public/shared-environment.js',
     'public/shared-characters.js',
-    'public/hub.html'
+    'public/hub.html',
+    'public/landing.html',
+    'public/landing.css',
+    'public/wiki.html',
+    'public/wiki.css'
 ]
 
 remote_dir = '/var/services/homes/nolimitnexus/steam_chatroom'

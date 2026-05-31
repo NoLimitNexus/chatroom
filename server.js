@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
+app.set('trust proxy', true);
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: '*' },
@@ -22,11 +23,56 @@ app.use((req, res, next) => {
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
-app.use(express.static('public'));
-app.use(express.json({ limit: '5mb' })); // Support JSON body for POST
 
-const fs = require('fs');
+const vhost = require('vhost');
 const path = require('path');
+const fs = require('fs');
+
+const publicPath = path.join(__dirname, 'public');
+
+// --- Subdomain Apps ---
+// 1. Play (Game)
+const playApp = express();
+playApp.use(express.static(publicPath)); // defaults to index.html
+
+// 2. Studio / Editor
+const studioApp = express();
+studioApp.get('/', (req, res) => res.sendFile(path.join(publicPath, 'editor.html')));
+studioApp.use(express.static(publicPath));
+
+// 3. Goop Lab
+const gooplabApp = express();
+gooplabApp.get('/', (req, res) => res.sendFile(path.join(publicPath, 'studio.html')));
+gooplabApp.use(express.static(publicPath));
+
+// 4. Admin Hub
+const hubApp = express();
+hubApp.get('/', (req, res) => res.sendFile(path.join(publicPath, 'hub.html')));
+hubApp.use(express.static(publicPath));
+
+// 5. Main Site (Landing Page)
+const mainApp = express();
+mainApp.get('/', (req, res) => res.sendFile(path.join(publicPath, 'landing.html')));
+mainApp.use(express.static(publicPath));
+
+// 6. Wiki
+const wikiApp = express();
+wikiApp.get('/', (req, res) => res.sendFile(path.join(publicPath, 'wiki.html')));
+wikiApp.use(express.static(publicPath));
+
+// Apply vhosts
+app.use(vhost('play.nolimitnexus.com', playApp));
+app.use(vhost('studio.nolimitnexus.com', studioApp));
+app.use(vhost('editor.nolimitnexus.com', studioApp));
+app.use(vhost('gooplab.nolimitnexus.com', gooplabApp));
+app.use(vhost('hub.nolimitnexus.com', hubApp));
+app.use(vhost('wiki.nolimitnexus.com', wikiApp));
+app.use(vhost('nolimitnexus.com', mainApp));
+app.use(vhost('www.nolimitnexus.com', mainApp));
+
+// Default fallback for localhost or IP
+app.use(express.static(publicPath));
+app.use(express.json({ limit: '5mb' })); // Support JSON body for POST
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -143,7 +189,7 @@ app.post('/api/map', (req, res) => {
 });
 
 // Sync map from production NAS — pulls latest and broadcasts to local clients
-const PROD_MAP_URL = 'https://chatroom.nolimitnexus.com/api/map';
+const PROD_MAP_URL = 'https://play.nolimitnexus.com/api/map';
 let lastMapHash = '';
 
 async function syncFromProd() {
@@ -171,12 +217,12 @@ app.get('/api/sync-from-prod', async (req, res) => {
     res.json({ success: true, objects: mapData.objects?.length || 0 });
 });
 
-syncFromProd(); // Initial sync on startup
+// syncFromProd(); // Initial sync on startup
 
 // ----------------------------------------------------
 // AUTO-RETURN BOATS LOGIC (2 MINUTES IDLE)
 // ----------------------------------------------------
-const BOAT_RETURN_TIMEOUT = 120000; // 2 minutes
+const BOAT_RETURN_TIMEOUT = 30000; // 30 seconds
 const BOAT_RETURN_SPEED = 3.0; // meters per sec
 
 setInterval(() => {
@@ -196,7 +242,7 @@ setInterval(() => {
             const dz = state.spawnPos.z - obj.position.z;
             const dist = Math.hypot(dx, dz);
 
-            if (dist > 2000.0) {
+            if (dist > 50.0) {
                 // Teleport if too far
                 state.returning = false;
                 obj.position.x = state.spawnPos.x;
@@ -429,6 +475,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('boatOccupied', (id) => {
+        console.log('boatOccupied received, id:', id);
         if (boatStates[id]) {
             boatStates[id].lastOccupiedTime = Date.now();
             boatStates[id].returning = false;

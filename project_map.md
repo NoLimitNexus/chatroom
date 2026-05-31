@@ -6,7 +6,7 @@
 |--------|-----|---------|
 | **Localhost** | `http://localhost:3000` | Local machine — active coding & instant updates |
 | **Staging** | `http://192.168.132.132:3002` | Optiplex — tests Docker/Network before Live |
-| **Live** | `https://chatroom.nolimitnexus.com` | NAS → Cloudflare Tunnel — the real game |
+| **Live** | `https://play.nolimitnexus.com` | NAS → Cloudflare Tunnel — the real game |
 
 > Local server auto-syncs map data from Live every 30 seconds.
 
@@ -39,10 +39,10 @@ STAGING / DEV (Optiplex - For testing Docker before Live):
   http://192.168.132.132:3002/hub.html    ← Hub
 
 LIVE (NAS - Production):
-  https://chatroom.nolimitnexus.com/            ← Game
-  https://chatroom.nolimitnexus.com/editor.html ← Editor
-  https://chatroom.nolimitnexus.com/studio.html ← Goop Lab
-  https://chatroom.nolimitnexus.com/hub.html    ← Hub
+  https://play.nolimitnexus.com/            ← Game
+  https://studio.nolimitnexus.com/          ← Editor
+  https://gooplab.nolimitnexus.com/         ← Goop Lab
+  https://hub.nolimitnexus.com/             ← Hub
 ```
 
 ---

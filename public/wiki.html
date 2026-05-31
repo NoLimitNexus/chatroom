@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Base — No Limit Nexus</title>
+    <meta name="description" content="Documentation and wiki for No Limit Nexus.">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+    <!-- Top Nav -->
+    <nav class="topbar">
+        <a href="https://nolimitnexus.com" class="brand">
+            <span class="icon">🌌</span> NEXUS WIKI
+        </a>
+        <div class="search-bar">
+            <input type="text" placeholder="Search documentation...">
+            <span class="search-icon">🔍</span>
+        </div>
+        <div class="top-links">
+            <a href="https://play.nolimitnexus.com">Play Game</a>
+            <a href="https://hub.nolimitnexus.com">Admin Hub</a>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="nav-section">
+                <h3>GETTING STARTED</h3>
+                <ul>
+                    <li><a href="#" class="active">Welcome to the Nexus</a></li>
+                    <li><a href="#">Controls & Basics</a></li>
+                    <li><a href="#">System Requirements</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <h3>MECHANICS</h3>
+                <ul>
+                    <li><a href="#">Fishing System</a></li>
+                    <li><a href="#">Inventory & Items</a></li>
+                    <li><a href="#">Combat (WIP)</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3>DEVELOPMENT</h3>
+                <ul>
+                    <li><a href="#">World Editor Guide</a></li>
+                    <li><a href="#">Goop Lab Prototyping</a></li>
+                    <li><a href="#">Server Architecture</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <header class="content-header">
+                <h1>Welcome to the Nexus</h1>
+                <p class="meta">Last updated: May 2026 • 2 min read</p>
+            </header>
+
+            <article class="markdown-body">
+                <p class="lead"><strong>No Limit Nexus</strong> is an experimental, persistent 3D sandbox MMO environment running on an independent Node.js infrastructure.</p>
+                
+                <h2>What is this place?</h2>
+                <p>The Nexus functions as an interactive chatroom and prototyping playground. It features real-time multiplayer, persistent world-building via the <strong>World Editor</strong>, and character prototyping tools in the <strong>Goop Lab</strong>.</p>
+
+                <div class="callout callout-info">
+                    <strong>Note:</strong> The environment is actively under development. Expect bugs, sudden server reboots, and occasional map wipes as the architecture evolves.
+                </div>
+
+                <h2>Quick Links</h2>
+                <div class="grid-links">
+                    <a href="https://play.nolimitnexus.com" class="card-link">
+                        <span class="icon">🎮</span>
+                        <div>
+                            <h4>Game Client</h4>
+                            <p>Jump right into the world.</p>
+                        </div>
+                    </a>
+                    <a href="https://studio.nolimitnexus.com" class="card-link">
+                        <span class="icon">🗺️</span>
+                        <div>
+                            <h4>World Editor</h4>
+                            <p>Shape the map in real-time.</p>
+                        </div>
+                    </a>
+                    <a href="https://gooplab.nolimitnexus.com" class="card-link">
+                        <span class="icon">🧪</span>
+                        <div>
+                            <h4>Goop Lab</h4>
+                            <p>Character & VFX workshop.</p>
+                        </div>
+                    </a>
+                </div>
+
+                <h2>Getting Started</h2>
+                <p>To join the game, simply visit the <a href="https://play.nolimitnexus.com">Play</a> subdomain. You will be prompted to enter a username. No registration is currently required.</p>
+                
+                <h3>Basic Controls</h3>
+                <ul>
+                    <li><code>W</code> <code>A</code> <code>S</code> <code>D</code> — Movement</li>
+                    <li><code>Shift</code> — Sprint</li>
+                    <li><code>Space</code> — Jump</li>
+                    <li><code>Click & Drag</code> — Rotate Camera</li>
+                    <li><code>Enter</code> — Open Chat</li>
+                    <li><code>I</code> or <code>Tab</code> — Open Inventory</li>
+                    <li><code>E</code> — Interact / Fish</li>
+                </ul>
+
+                <hr>
+
+                <h2>Infrastructure</h2>
+                <p>The application is distributed across multiple subdomains, all routing through a high-performance Cloudflare Tunnel to an internal Dockerized Node.js environment.</p>
+                
+                <pre><code>// Example Routing Logic
+play.nolimitnexus.com      -> index.html
+studio.nolimitnexus.com    -> editor.html
+gooplab.nolimitnexus.com   -> studio.html
+hub.nolimitnexus.com       -> hub.html</code></pre>
+
+                <p>If you're an admin, use the <a href="https://hub.nolimitnexus.com">Command Hub</a> to monitor container health and active players.</p>
+            </article>
+
+            <footer class="content-footer">
+                <div class="prev-next">
+                    <span></span>
+                    <a href="#" class="next">Controls & Basics →</a>
+                </div>
+            </footer>
+        </main>
+    </div>
+</body>
+</html>

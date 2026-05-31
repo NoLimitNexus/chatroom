@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>No Limit Nexus — MMO Sandbox</title>
+    <meta name="description" content="A seamless, fully persistent MMO sandbox environment.">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="landing.css">
+</head>
+<body>
+    <div class="bg-animation"></div>
+    <div class="grid-overlay"></div>
+
+    <nav class="navbar glass">
+        <div class="logo">
+            <span class="logo-icon">🌌</span>
+            NO LIMIT NEXUS
+        </div>
+        <div class="nav-links">
+            <a href="https://play.nolimitnexus.com" class="nav-link">Play</a>
+            <a href="https://wiki.nolimitnexus.com" class="nav-link">Wiki</a>
+        </div>
+    </nav>
+
+    <main class="hero">
+        <div class="hero-content">
+            <h1 class="glitch" data-text="NO LIMIT NEXUS">NO LIMIT NEXUS</h1>
+            <p class="subtitle">A persistent, fully interactive 3D multiplayer sandbox. Explore a living world, fish, chat, and hang out with friends — all in your browser.</p>
+            
+            <div class="cta-group">
+                <a href="https://play.nolimitnexus.com" class="btn btn-primary glow-effect">
+                    <span class="btn-text">ENTER THE WORLD</span>
+                    <span class="btn-icon">→</span>
+                </a>
+                <a href="https://wiki.nolimitnexus.com" class="btn btn-secondary">
+                    READ THE WIKI
+                </a>
+            </div>
+        </div>
+
+        <div class="cards-container">
+            <a href="https://play.nolimitnexus.com" class="feature-card glass tilt">
+                <div class="card-icon">🎮</div>
+                <h3>Play Now</h3>
+                <p>Jump straight into the world. No download, no account — just pick a name and go.</p>
+            </a>
+            <a href="https://wiki.nolimitnexus.com" class="feature-card glass tilt">
+                <div class="card-icon">📖</div>
+                <h3>Wiki</h3>
+                <p>Learn the controls, mechanics, and lore behind the Nexus.</p>
+            </a>
+        </div>
+    </main>
+
+    <script>
+        // Simple tilt effect for cards
+        document.querySelectorAll('.tilt').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -10;
+                const rotateY = ((x - centerX) / centerX) * 10;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateY(0)';
+            });
+        });
+    </script>
+</body>
+</html>

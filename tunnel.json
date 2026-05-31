@@ -21,9 +21,40 @@
         "hostname": "dashboard-api.nolimitnexus.com",
         "originRequest": {}
       },
+
       {
         "service": "http://192.168.50.141:3000",
-        "hostname": "chatroom.nolimitnexus.com",
+        "hostname": "play.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3000",
+        "hostname": "studio.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3000",
+        "hostname": "wiki.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3000",
+        "hostname": "nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3000",
+        "hostname": "www.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3000",
+        "hostname": "gooplab.nolimitnexus.com",
+        "originRequest": {}
+      },
+      {
+        "service": "http://192.168.50.141:3000",
+        "hostname": "hub.nolimitnexus.com",
         "originRequest": {}
       },
       {
