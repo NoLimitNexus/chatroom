@@ -3,21 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Knowledge Base — No Limit Nexus</title>
-    <meta name="description" content="Documentation and wiki for No Limit Nexus.">
+    <title>Wiki — No Limit Nexus</title>
+    <meta name="description" content="Documentation and wiki for No Limit Nexus — controls, mechanics, and guides.">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="wiki.css">
 </head>
 <body>
-    <!-- Top Nav -->
     <nav class="topbar">
         <a href="https://nolimitnexus.com" class="brand">
             <span class="icon">🌌</span> NEXUS WIKI
         </a>
-        <div class="search-bar">
-            <input type="text" placeholder="Search documentation...">
-            <span class="search-icon">🔍</span>
-        </div>
         <div class="top-links">
             <a href="https://play.nolimitnexus.com">Play Game</a>
             <a href="https://nolimitnexus.com">Home</a>
@@ -25,44 +20,58 @@
     </nav>
 
     <div class="layout">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="nav-section">
                 <h3>GETTING STARTED</h3>
                 <ul>
-                    <li><a href="#" class="active">Welcome to the Nexus</a></li>
-                    <li><a href="#">Controls & Basics</a></li>
-                    <li><a href="#">System Requirements</a></li>
+                    <li><a href="#" data-page="welcome" class="active">Welcome to the Nexus</a></li>
+                    <li><a href="#" data-page="controls">Controls & Basics</a></li>
+                    <li><a href="#" data-page="requirements">System Requirements</a></li>
                 </ul>
             </div>
-            
             <div class="nav-section">
                 <h3>MECHANICS</h3>
                 <ul>
-                    <li><a href="#">Fishing System</a></li>
-                    <li><a href="#">Inventory & Items</a></li>
-                    <li><a href="#">Combat (WIP)</a></li>
+                    <li><a href="#" data-page="fishing">Fishing System</a></li>
+                    <li><a href="#" data-page="inventory">Inventory & Items</a></li>
+                    <li><a href="#" data-page="boats">Boats & Navigation</a></li>
                 </ul>
             </div>
-
-
+            <div class="nav-section">
+                <h3>WORLD</h3>
+                <ul>
+                    <li><a href="#" data-page="environment">Day/Night Cycle</a></li>
+                    <li><a href="#" data-page="multiplayer">Multiplayer</a></li>
+                    <li><a href="#" data-page="faq">FAQ</a></li>
+                </ul>
+            </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="content">
-            <header class="content-header">
-                <h1>Welcome to the Nexus</h1>
-                <p class="meta">Last updated: May 2026 • 2 min read</p>
-            </header>
+            <div id="page-content"></div>
 
-            <article class="markdown-body">
-                <p class="lead"><strong>No Limit Nexus</strong> is an experimental, persistent 3D sandbox MMO environment running on an independent Node.js infrastructure.</p>
-                
+            <footer class="content-footer">
+                <div class="prev-next">
+                    <a href="#" id="nav-prev" style="display:none;">← Previous</a>
+                    <span></span>
+                    <a href="#" id="nav-next" style="display:none;">Next →</a>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+    const pages = {
+        welcome: {
+            title: 'Welcome to the Nexus',
+            content: `
+                <p class="lead"><strong>No Limit Nexus</strong> is a persistent, browser-based 3D multiplayer sandbox. Jump in, explore, fish, chat, and hang out with friends — no downloads required.</p>
+
                 <h2>What is this place?</h2>
-                <p>The Nexus is a persistent, browser-based 3D multiplayer sandbox. Jump in, explore, fish, chat, and hang out with friends — no downloads required.</p>
+                <p>The Nexus is an always-online 3D world that runs entirely in your web browser. Think of it as a virtual hangout spot where you can walk around, chat with other players in real-time, go fishing, collect items, and explore a hand-crafted environment that's constantly evolving.</p>
 
                 <div class="callout callout-info">
-                    <strong>Note:</strong> The environment is actively under development. Expect bugs, sudden server reboots, and occasional map wipes as the architecture evolves.
+                    <strong>Note:</strong> The environment is actively under development. Expect occasional bugs, server reboots, and exciting new features dropping regularly.
                 </div>
 
                 <h2>Quick Links</h2>
@@ -83,30 +92,330 @@
                     </a>
                 </div>
 
-                <h2>Getting Started</h2>
-                <p>To join the game, simply visit the <a href="https://play.nolimitnexus.com">Play</a> subdomain. You will be prompted to enter a username. No registration is currently required.</p>
-                
-                <h3>Basic Controls</h3>
+                <h2>How to Join</h2>
+                <p>To start playing, visit <a href="https://play.nolimitnexus.com">play.nolimitnexus.com</a>. You'll see a login screen where you enter a username — that's it. No email, no registration, no password. Just pick a name and you're in.</p>
+                <p>Once you load in, you'll spawn into the shared world. Everyone online sees the same environment, and you can interact with each other in real-time.</p>
+            `
+        },
+        controls: {
+            title: 'Controls & Basics',
+            content: `
+                <p class="lead">Everything you need to know to move around, interact, and communicate in the Nexus.</p>
+
+                <h2>Movement</h2>
+                <table>
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>W</code></td><td>Move forward</td></tr>
+                        <tr><td><code>A</code></td><td>Strafe left</td></tr>
+                        <tr><td><code>S</code></td><td>Move backward</td></tr>
+                        <tr><td><code>D</code></td><td>Strafe right</td></tr>
+                        <tr><td><code>Shift</code></td><td>Sprint (hold while moving)</td></tr>
+                        <tr><td><code>Space</code></td><td>Jump</td></tr>
+                        <tr><td><code>C</code></td><td>Crouch / Toggle crouch</td></tr>
+                    </tbody>
+                </table>
+
+                <h2>Camera</h2>
+                <table>
+                    <thead><tr><th>Input</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>Click & Drag</code></td><td>Rotate camera around your character</td></tr>
+                        <tr><td><code>Scroll Wheel</code></td><td>Zoom in / out</td></tr>
+                    </tbody>
+                </table>
+                <p>The camera follows your character in third person. You can rotate it freely by clicking and dragging anywhere on screen.</p>
+
+                <h2>Interaction</h2>
+                <table>
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td><code>E</code></td><td>Interact (fish at fishing spots, use objects)</td></tr>
+                        <tr><td><code>I</code> or <code>Tab</code></td><td>Open / close inventory</td></tr>
+                        <tr><td><code>Enter</code></td><td>Open chat box</td></tr>
+                        <tr><td><code>Escape</code></td><td>Close chat / menus</td></tr>
+                    </tbody>
+                </table>
+
+                <h2>Chat</h2>
+                <p>Press <code>Enter</code> to open the chat. Type your message and press <code>Enter</code> again to send. Your message appears above your character's head and in the chat log for all players to see. Press <code>Escape</code> to close the chat without sending.</p>
+
+                <h2>Mobile Controls</h2>
+                <p>On mobile devices, the game provides touch-based controls:</p>
                 <ul>
-                    <li><code>W</code> <code>A</code> <code>S</code> <code>D</code> — Movement</li>
-                    <li><code>Shift</code> — Sprint</li>
-                    <li><code>Space</code> — Jump</li>
-                    <li><code>Click & Drag</code> — Rotate Camera</li>
-                    <li><code>Enter</code> — Open Chat</li>
-                    <li><code>I</code> or <code>Tab</code> — Open Inventory</li>
-                    <li><code>E</code> — Interact / Fish</li>
+                    <li><strong>Virtual Joystick</strong> — appears on the left side for movement</li>
+                    <li><strong>Touch & Drag</strong> — drag on the right side to look around</li>
+                    <li><strong>Action Buttons</strong> — on-screen buttons for Jump, Interact, Chat, and Inventory</li>
+                </ul>
+            `
+        },
+        requirements: {
+            title: 'System Requirements',
+            content: `
+                <p class="lead">The Nexus runs in any modern web browser with WebGL support. No installation needed.</p>
+
+                <h2>Minimum Requirements</h2>
+                <ul>
+                    <li><strong>Browser:</strong> Chrome 90+, Firefox 88+, Edge 90+, Safari 15+</li>
+                    <li><strong>WebGL:</strong> WebGL 1.0 support required (virtually all modern devices)</li>
+                    <li><strong>Internet:</strong> Stable connection (WebSocket support required)</li>
+                    <li><strong>RAM:</strong> 2GB+ free</li>
                 </ul>
 
+                <h2>Recommended</h2>
+                <ul>
+                    <li><strong>Browser:</strong> Latest Chrome or Edge for best performance</li>
+                    <li><strong>GPU:</strong> Dedicated graphics card for smooth rendering</li>
+                    <li><strong>Screen:</strong> 1920×1080 or higher</li>
+                    <li><strong>Internet:</strong> Broadband connection for real-time multiplayer</li>
+                </ul>
 
-            </article>
-
-            <footer class="content-footer">
-                <div class="prev-next">
-                    <span></span>
-                    <a href="#" class="next">Controls & Basics →</a>
+                <div class="callout callout-info">
+                    <strong>Tip:</strong> If you experience lag, try closing other browser tabs. The 3D renderer can be resource-intensive on older hardware.
                 </div>
-            </footer>
-        </main>
-    </div>
+
+                <h2>Mobile Support</h2>
+                <p>The game works on mobile browsers (iOS Safari, Chrome for Android) with dedicated touch controls. Performance varies by device — newer phones and tablets provide the best experience.</p>
+            `
+        },
+        fishing: {
+            title: 'Fishing System',
+            content: `
+                <p class="lead">Fishing is the primary resource-gathering mechanic in the Nexus. Find a fishing spot, cast your line, and reel in the catch.</p>
+
+                <h2>How to Fish</h2>
+                <ol>
+                    <li><strong>Find a Fishing Spot</strong> — Look for animated bubble clusters along the shoreline. These mark active fishing locations.</li>
+                    <li><strong>Walk Up to It</strong> — Get close to the bubbles. You'll need to be within interaction range.</li>
+                    <li><strong>Press E</strong> — Your character will pull out a fishing rod and cast a line toward the spot.</li>
+                    <li><strong>Wait for a Bite</strong> — After a random interval, you'll catch a fish. A colorful orb VFX will fly toward you as visual feedback.</li>
+                    <li><strong>Check Your Inventory</strong> — The caught fish is automatically added to your inventory (<code>I</code> or <code>Tab</code> to view).</li>
+                </ol>
+
+                <h2>Fish Types</h2>
+                <p>Different fishing spots can yield different fish. Each fish has a unique color associated with it. The type of fish you catch is determined randomly when you reel in.</p>
+
+                <h2>Fishing Spots</h2>
+                <p>Fishing spots are distributed along the world's coastline. They're marked by animated water bubbles that are visible from a distance. Spots are shared across all players — multiple people can fish at the same spot simultaneously.</p>
+
+                <div class="callout callout-info">
+                    <strong>Tip:</strong> Other players can see your fishing animation. It's a great way to hang out and chat while gathering resources.
+                </div>
+            `
+        },
+        inventory: {
+            title: 'Inventory & Items',
+            content: `
+                <p class="lead">Your inventory stores everything you collect in the Nexus. Open it anytime with <code>I</code> or <code>Tab</code>.</p>
+
+                <h2>Opening Your Inventory</h2>
+                <p>Press <code>I</code> or <code>Tab</code> to toggle the inventory panel. It appears as a grid overlay showing all your collected items. Press the same key again or <code>Escape</code> to close it.</p>
+
+                <h2>Collecting Items</h2>
+                <p>Items are collected through gameplay mechanics:</p>
+                <ul>
+                    <li><strong>Fishing</strong> — Caught fish are automatically added to your inventory</li>
+                    <li><strong>Picking Up</strong> — Walk over dropped items in the world to collect them</li>
+                </ul>
+
+                <h2>Dropping Items</h2>
+                <p>You can drop items from your inventory into the game world. Dropped items are visible to all players and can be picked up by anyone. Items dropped on the ground will despawn after <strong>2 minutes</strong> if not picked up.</p>
+
+                <div class="callout callout-info">
+                    <strong>Note:</strong> Your inventory is currently session-based. If you disconnect, your inventory resets. Persistent inventory storage is planned for a future update.
+                </div>
+
+                <h2>Item Interactions</h2>
+                <p>Items in your inventory can be dragged and rearranged. Some items may have special interactions — this system is still being expanded.</p>
+            `
+        },
+        boats: {
+            title: 'Boats & Navigation',
+            content: `
+                <p class="lead">Boats let you explore the water and travel across the map. They're persistent objects placed throughout the world.</p>
+
+                <h2>Using a Boat</h2>
+                <ol>
+                    <li><strong>Find a Boat</strong> — Boats are placed near the shoreline. Walk up to one.</li>
+                    <li><strong>Board It</strong> — Interact with the boat to hop in. You'll take control of the vessel.</li>
+                    <li><strong>Steer</strong> — Use <code>W</code>/<code>S</code> to move forward/backward and <code>A</code>/<code>D</code> to turn.</li>
+                    <li><strong>Disembark</strong> — Press the interact key to hop off the boat.</li>
+                </ol>
+
+                <h2>Auto-Return</h2>
+                <p>Boats have an auto-return system. If a boat is left unoccupied for <strong>30 seconds</strong>, it will automatically navigate back to its original spawn location. This prevents boats from getting stranded in the middle of the ocean.</p>
+                <p>If a boat drifts too far from its spawn (over 50 meters), it will instantly teleport back instead of slowly sailing home.</p>
+
+                <div class="callout callout-info">
+                    <strong>Multiplayer Note:</strong> Other players can see you steering the boat in real-time. Boat positions are synchronized across all connected clients.
+                </div>
+            `
+        },
+        environment: {
+            title: 'Day/Night Cycle',
+            content: `
+                <p class="lead">The Nexus features a full dynamic day/night cycle with real-time lighting changes.</p>
+
+                <h2>How It Works</h2>
+                <p>The world has a continuous 24-hour cycle that runs on the server. All players experience the same time of day simultaneously. The sun moves across the sky, casting realistic shadows and changing the ambient lighting.</p>
+
+                <h2>Time Periods</h2>
+                <table>
+                    <thead><tr><th>Time</th><th>Period</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td>5:00 – 7:00</td><td>Dawn</td><td>Sky transitions from dark to warm orange hues</td></tr>
+                        <tr><td>7:00 – 17:00</td><td>Day</td><td>Full daylight with clear skies</td></tr>
+                        <tr><td>17:00 – 19:00</td><td>Dusk</td><td>Golden hour transitioning to deep purples</td></tr>
+                        <tr><td>19:00 – 5:00</td><td>Night</td><td>Dark skies with ambient moonlight</td></tr>
+                    </tbody>
+                </table>
+
+                <h2>Lighting</h2>
+                <p>The environment uses a physically-based sky model. During the day, sunlight creates dynamic shadows from all objects. At night, ambient light keeps the world navigable while creating a moody atmosphere. Campfires and other light sources become more prominent during nighttime.</p>
+            `
+        },
+        multiplayer: {
+            title: 'Multiplayer',
+            content: `
+                <p class="lead">Everything in the Nexus is shared. You see other players, their actions, and the world changes they make — all in real-time.</p>
+
+                <h2>How It Works</h2>
+                <p>The game uses WebSocket connections to synchronize all player states. When you move, chat, fish, or interact with objects, every other connected player sees it happen instantly.</p>
+
+                <h2>What's Synchronized</h2>
+                <ul>
+                    <li><strong>Player Positions</strong> — See other players walking, running, jumping, and crouching</li>
+                    <li><strong>Animations</strong> — Fishing rods, cooking animations, and other actions are visible to everyone</li>
+                    <li><strong>Chat Messages</strong> — All messages appear in the shared chat log and as speech bubbles</li>
+                    <li><strong>Dropped Items</strong> — Items dropped by any player are visible to and collectible by everyone</li>
+                    <li><strong>Boats</strong> — Boat movement is synced across all clients</li>
+                    <li><strong>Day/Night Cycle</strong> — All players experience the same time of day</li>
+                </ul>
+
+                <h2>Player Identity</h2>
+                <p>When you join, you choose a username. This name appears above your character model for other players to see. There's no registration system — just pick a name and play.</p>
+
+                <div class="callout callout-info">
+                    <strong>Character Models:</strong> Players appear as the "Modular Man" — a rigged 3D character with idle, walk, run, crouch, and jump animations. Character customization is planned for a future update.
+                </div>
+            `
+        },
+        faq: {
+            title: 'Frequently Asked Questions',
+            content: `
+                <p class="lead">Common questions about the Nexus.</p>
+
+                <h2>General</h2>
+
+                <h3>Is it free to play?</h3>
+                <p>Yes, completely free. No accounts, no payments, no ads.</p>
+
+                <h3>Do I need to download anything?</h3>
+                <p>No. The game runs entirely in your web browser. Just visit <a href="https://play.nolimitnexus.com">play.nolimitnexus.com</a> and start playing.</p>
+
+                <h3>What browsers are supported?</h3>
+                <p>Any modern browser with WebGL support — Chrome, Firefox, Edge, and Safari all work. Chrome tends to give the best performance.</p>
+
+                <h3>Can I play on my phone?</h3>
+                <p>Yes. The game has mobile touch controls including a virtual joystick and on-screen buttons. Performance depends on your device.</p>
+
+                <h2>Gameplay</h2>
+
+                <h3>Is my progress saved?</h3>
+                <p>The world itself is persistent — buildings, objects, and terrain are saved permanently. However, your personal inventory is currently session-based and resets when you disconnect. Persistent player data is planned.</p>
+
+                <h3>Can other players steal my items?</h3>
+                <p>If you drop items on the ground, anyone can pick them up. Items in your inventory are safe until you drop them.</p>
+
+                <h3>How many players can be online at once?</h3>
+                <p>The server can handle dozens of concurrent players. Performance is continuously being optimized to support more.</p>
+
+                <h2>Technical</h2>
+
+                <h3>The game is lagging — what can I do?</h3>
+                <ul>
+                    <li>Close other browser tabs to free up memory</li>
+                    <li>Make sure hardware acceleration is enabled in your browser settings</li>
+                    <li>Try Chrome if you're using a different browser</li>
+                    <li>On mobile, close background apps</li>
+                </ul>
+
+                <h3>I see a black screen when loading</h3>
+                <p>This usually means WebGL failed to initialize. Check that your browser supports WebGL and that hardware acceleration is enabled. Refreshing the page often fixes transient issues.</p>
+
+                <h3>Who made this?</h3>
+                <p>The Nexus is an independent project. The world, engine, and infrastructure are all custom-built.</p>
+            `
+        }
+    };
+
+    const pageOrder = ['welcome','controls','requirements','fishing','inventory','boats','environment','multiplayer','faq'];
+
+    function showPage(id) {
+        const page = pages[id];
+        if (!page) return;
+
+        document.getElementById('page-content').innerHTML = `
+            <header class="content-header">
+                <h1>${page.title}</h1>
+            </header>
+            <article class="markdown-body">${page.content}</article>
+        `;
+
+        // Update sidebar active state
+        document.querySelectorAll('.sidebar a').forEach(a => {
+            a.classList.toggle('active', a.dataset.page === id);
+        });
+
+        // Update prev/next nav
+        const idx = pageOrder.indexOf(id);
+        const prevEl = document.getElementById('nav-prev');
+        const nextEl = document.getElementById('nav-next');
+
+        if (idx > 0) {
+            prevEl.style.display = '';
+            prevEl.textContent = '← ' + pages[pageOrder[idx - 1]].title;
+            prevEl.dataset.page = pageOrder[idx - 1];
+        } else {
+            prevEl.style.display = 'none';
+        }
+
+        if (idx < pageOrder.length - 1) {
+            nextEl.style.display = '';
+            nextEl.textContent = pages[pageOrder[idx + 1]].title + ' →';
+            nextEl.dataset.page = pageOrder[idx + 1];
+        } else {
+            nextEl.style.display = 'none';
+        }
+
+        // Scroll content to top
+        document.querySelector('.content').scrollTo(0, 0);
+
+        // Update URL hash
+        history.replaceState(null, '', '#' + id);
+    }
+
+    // Sidebar navigation
+    document.querySelectorAll('.sidebar a[data-page]').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            showPage(a.dataset.page);
+        });
+    });
+
+    // Prev/Next navigation
+    document.getElementById('nav-prev').addEventListener('click', e => {
+        e.preventDefault();
+        showPage(e.target.dataset.page);
+    });
+    document.getElementById('nav-next').addEventListener('click', e => {
+        e.preventDefault();
+        showPage(e.target.dataset.page);
+    });
+
+    // Load initial page from hash or default
+    const initialPage = location.hash ? location.hash.slice(1) : 'welcome';
+    showPage(pages[initialPage] ? initialPage : 'welcome');
+    </script>
 </body>
 </html>

@@ -225,7 +225,7 @@ body {
     text-decoration: underline;
 }
 
-.markdown-body ul {
+.markdown-body ul, .markdown-body ol {
     margin-bottom: 1.2rem;
     padding-left: 1.5rem;
     color: #cbd5e1;
@@ -233,6 +233,31 @@ body {
 
 .markdown-body li {
     margin-bottom: 0.4rem;
+}
+
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+}
+
+.markdown-body th, .markdown-body td {
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border);
+    text-align: left;
+    color: #cbd5e1;
+}
+
+.markdown-body th {
+    background-color: var(--bg-surface);
+    color: var(--text-main);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.markdown-body td code {
+    background-color: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
 }
 
 .markdown-body code {

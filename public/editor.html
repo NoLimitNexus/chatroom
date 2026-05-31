@@ -184,6 +184,60 @@
     </style>
 </head>
 <body>
+    <!-- Auth Gate -->
+    <div id="auth-gate" style="position:fixed;inset:0;z-index:9999;background:#0a0f1e;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;">
+        <div style="background:rgba(15,23,42,0.95);border:1px solid rgba(59,130,246,0.3);border-radius:16px;padding:40px;width:360px;text-align:center;box-shadow:0 0 40px rgba(59,130,246,0.1);">
+            <div style="font-size:2rem;margin-bottom:8px;">🔒</div>
+            <h2 style="color:#f8fafc;margin:0 0 4px;font-size:1.3rem;">World Editor</h2>
+            <p style="color:#64748b;font-size:0.85rem;margin:0 0 24px;">Authorized access only</p>
+            <input type="email" id="auth-email" placeholder="Email" style="width:100%;padding:10px 14px;margin-bottom:10px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:0.9rem;outline:none;box-sizing:border-box;" />
+            <input type="password" id="auth-password" placeholder="Password" style="width:100%;padding:10px 14px;margin-bottom:16px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-size:0.9rem;outline:none;box-sizing:border-box;" />
+            <button id="auth-submit" style="width:100%;padding:11px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;transition:background 0.2s;">Sign In</button>
+            <p id="auth-error" style="color:#ef4444;font-size:0.8rem;margin:12px 0 0;display:none;"></p>
+        </div>
+    </div>
+    <script>
+    (function() {
+        const PB_URL = location.hostname === 'localhost' || location.hostname.startsWith('192.168')
+            ? 'http://192.168.50.141:8090'
+            : 'https://pb.nolimitnexus.com';
+        const gate = document.getElementById('auth-gate');
+        const emailInput = document.getElementById('auth-email');
+        const passInput = document.getElementById('auth-password');
+        const submitBtn = document.getElementById('auth-submit');
+        const errorEl = document.getElementById('auth-error');
+
+        // Check for existing session
+        const saved = sessionStorage.getItem('pb_editor_token');
+        if (saved) { gate.style.display = 'none'; }
+
+        async function tryLogin() {
+            errorEl.style.display = 'none';
+            submitBtn.textContent = 'Signing in...';
+            submitBtn.disabled = true;
+            try {
+                const res = await fetch(PB_URL + '/api/collections/_superusers/auth-with-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identity: emailInput.value.trim(), password: passInput.value })
+                });
+                if (!res.ok) throw new Error('Invalid credentials');
+                const data = await res.json();
+                sessionStorage.setItem('pb_editor_token', data.token);
+                gate.style.display = 'none';
+            } catch (e) {
+                errorEl.textContent = 'Access denied — invalid credentials.';
+                errorEl.style.display = 'block';
+                submitBtn.textContent = 'Sign In';
+                submitBtn.disabled = false;
+            }
+        }
+        submitBtn.addEventListener('click', tryLogin);
+        passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
+        emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') passInput.focus(); });
+    })();
+    </script>
+
 
     <div id="ui-layer">
         <div class="panel-header" id="main-panel-header">World Editor</div>
