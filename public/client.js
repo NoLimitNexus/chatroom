@@ -846,6 +846,17 @@
                 // Apply transformations to the wrapper group
                 if (data.type === 'Boat') {
                     data.position.y = -1.2;
+                    if (data.rotation) {
+                        // Fix boats that were accidentally flipped upside-down in the editor
+                        if (Math.abs(data.rotation.x) > 1 || Math.abs(data.rotation.z) > 1) {
+                            data.rotation.x = 0;
+                            data.rotation.z = 0;
+                            data.rotation.y += Math.PI; // Adjust yaw so it doesn't visually reverse direction
+                        } else {
+                            data.rotation.x = 0;
+                            data.rotation.z = 0;
+                        }
+                    }
                 }
 
                 // Fallbacks for safe initialization
@@ -1566,6 +1577,10 @@
     });
     socket.on('playerMoved', function (d) { 
         if (players[d.id]) {
+            if (players[d.id].userData.isBot) {
+                // Snap bot Y to terrain to prevent floating/clipping since the server doesn't know terrain height
+                d.y = Math.max(getTerrainHeight(d.x, d.z), 0);
+            }
             players[d.id].targetPos.set(d.x, d.y, d.z); 
             players[d.id].targetRy = d.ry;
             players[d.id].isMoving = d.isMoving;
@@ -2116,12 +2131,12 @@
                     var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
                     direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
 
-                    // Rotate boat to face movement direction (smooth turn)
+                    // Rotate boat to face movement direction (fast snap)
                     var targetYaw = Math.atan2(direction.x, direction.z);
                     var diff = targetYaw - boat.rotation.y;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
-                    boat.rotation.y += diff * 4 * delta;
+                    boat.rotation.y += diff * 15 * delta;
 
                     // Calculate next position
                     var nextX = boat.position.x + direction.x * bSpeed * delta;

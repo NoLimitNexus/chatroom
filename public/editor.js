@@ -36,18 +36,31 @@ orbitControls.maxDistance = 200;
 
 // Transform Controls
 const transformControl = new THREE.TransformControls(camera, renderer.domElement);
+transformControl.setSpace('local');
 transformControl.addEventListener('dragging-changed', function(event) {
     orbitControls.enabled = !event.value;
     if (!event.value) {
-        if (selectedObject && transformControl.mode === 'translate') {
-            // Auto-snap Y: boats to water level, others to terrain
-            if (selectedObject.userData.type === 'Boat') {
-                selectedObject.position.y = -1.2;
-            } else if (window.getTerrainHeight) {
-                selectedObject.position.y = window.getTerrainHeight(selectedObject.position.x, selectedObject.position.z);
-            }
-        }
         if (selectedObject) {
+            // Prevent negative scaling which corrupts rotations
+            selectedObject.scale.x = Math.max(0.01, Math.abs(selectedObject.scale.x));
+            selectedObject.scale.y = Math.max(0.01, Math.abs(selectedObject.scale.y));
+            selectedObject.scale.z = Math.max(0.01, Math.abs(selectedObject.scale.z));
+
+            if (transformControl.mode === 'translate') {
+                // Auto-snap Y: boats to water level, others to terrain
+                if (selectedObject.userData.type === 'Boat') {
+                    selectedObject.position.y = -1.2;
+                } else if (window.getTerrainHeight) {
+                    selectedObject.position.y = window.getTerrainHeight(selectedObject.position.x, selectedObject.position.z);
+                }
+            }
+
+            // Enforce strict X/Z rotation lock for Boats
+            if (selectedObject.userData.type === 'Boat') {
+                selectedObject.rotation.x = 0;
+                selectedObject.rotation.z = 0;
+            }
+
             selectedObject.userData.spawnPos = { 
                 x: selectedObject.position.x, 
                 y: selectedObject.position.y, 
@@ -413,7 +426,11 @@ function instantiateObject(data) {
 
     if (mesh) {
         mesh.position.set(data.position.x, data.position.y, data.position.z);
-        mesh.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
+        if (data.type === 'Boat') {
+            mesh.rotation.set(0, data.rotation.y, 0);
+        } else {
+            mesh.rotation.set(data.rotation.x, data.rotation.y, data.rotation.z);
+        }
         mesh.scale.set(data.scale.x, data.scale.y, data.scale.z);
         mesh.userData.id = data.id || 'obj_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
         mesh.userData.tags = data.tags || [];
@@ -442,6 +459,12 @@ function saveMap() {
             timeOfDay: window.environmentTimeOfDay !== undefined ? window.environmentTimeOfDay : 12.0,
             timeSpeed: window.environmentTimeSpeed !== undefined ? window.environmentTimeSpeed : 1.0,
             nightBrightness: window.environmentNightBrightness !== undefined ? window.environmentNightBrightness : 0.0
+        },
+        botConfig: {
+            enabled: document.getElementById('bot-enabled') ? document.getElementById('bot-enabled').checked : false,
+            count: document.getElementById('bot-count') ? parseInt(document.getElementById('bot-count').value) : 5,
+            zoneCenter: { x: 0, z: 0 },
+            zoneRadius: document.getElementById('bot-radius') ? parseInt(document.getElementById('bot-radius').value) : 50
         },
         objects: environmentObjects.map(obj => {
             const isBoat = obj.userData.type === 'Boat';
@@ -1222,6 +1245,14 @@ socket.on('mapUpdate', function(data) {
         if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
     }
     
+    if (data && data.botConfig && document.getElementById('bot-enabled')) {
+        document.getElementById('bot-enabled').checked = data.botConfig.enabled;
+        document.getElementById('bot-count').value = data.botConfig.count || 5;
+        document.getElementById('bot-count-val').innerText = data.botConfig.count || 5;
+        document.getElementById('bot-radius').value = data.botConfig.zoneRadius || 50;
+        document.getElementById('bot-radius-val').innerText = (data.botConfig.zoneRadius || 50) + 'm';
+    }
+    
     if (data && data.objects) data.objects.forEach(objData => instantiateObject(objData));
     updateObjectList();
     showNotification("Map synced from server");
@@ -1245,6 +1276,16 @@ chatInput.addEventListener('keypress', function(e) {
         const msg = this.value.trim();
         if (msg) { socket.emit('chatMessage', msg); this.value = ''; }
     }
+});
+
+document.getElementById('bot-count').addEventListener('input', (e) => {
+    document.getElementById('bot-count-val').innerText = e.target.value;
+});
+document.getElementById('bot-radius').addEventListener('input', (e) => {
+    document.getElementById('bot-radius-val').innerText = e.target.value + 'm';
+});
+document.getElementById('btn-save-bots').addEventListener('click', () => {
+    saveMap();
 });
 
 document.getElementById('btn-save-terrain').addEventListener('click', () => {
