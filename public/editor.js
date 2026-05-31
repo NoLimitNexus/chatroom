@@ -1245,6 +1245,23 @@ document.getElementById('env-time').addEventListener('input', (e) => {
 document.getElementById('env-speed').addEventListener('input', (e) => {
     window.environmentTimeSpeed = parseFloat(e.target.value);
     document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
+    document.getElementById('env-pause').checked = (window.environmentTimeSpeed === 0);
+    socket.emit('updateEnvironment', { 
+        timeOfDay: window.environmentTimeOfDay, 
+        timeSpeed: window.environmentTimeSpeed,
+        nightBrightness: window.environmentNightBrightness || 0.0
+    });
+});
+
+document.getElementById('env-pause').addEventListener('change', (e) => {
+    if (e.target.checked) {
+        window.previousTimeSpeed = window.environmentTimeSpeed > 0 ? window.environmentTimeSpeed : 1.0;
+        window.environmentTimeSpeed = 0;
+    } else {
+        window.environmentTimeSpeed = window.previousTimeSpeed || 1.0;
+    }
+    document.getElementById('env-speed').value = window.environmentTimeSpeed;
+    document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
     socket.emit('updateEnvironment', { 
         timeOfDay: window.environmentTimeOfDay, 
         timeSpeed: window.environmentTimeSpeed,
@@ -1283,6 +1300,7 @@ socket.on('timeSync', function (envData) {
     document.getElementById('env-time-val').innerText = window.environmentTimeOfDay.toFixed(1);
     document.getElementById('env-speed').value = window.environmentTimeSpeed;
     document.getElementById('env-speed-val').innerText = window.environmentTimeSpeed.toFixed(1) + 'x';
+    document.getElementById('env-pause').checked = (window.environmentTimeSpeed === 0);
     if (window.updateEnvironmentTime) window.updateEnvironmentTime(window.environmentTimeOfDay);
 });
 
