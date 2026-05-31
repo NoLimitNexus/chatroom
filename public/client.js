@@ -2010,8 +2010,8 @@
                     boat.rotation.y += diff * 15 * delta;
 
                     // Move along boat's CURRENT heading so it never crabs sideways
-                    var headX = -Math.sin(boat.rotation.y);
-                    var headZ = -Math.cos(boat.rotation.y);
+                    var headX = Math.sin(boat.rotation.y);
+                    var headZ = Math.cos(boat.rotation.y);
                     var nextX = boat.position.x + headX * bSpeed * delta;
                     var nextZ = boat.position.z + headZ * bSpeed * delta;
                     
