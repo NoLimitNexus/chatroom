@@ -257,5 +257,19 @@
     "duration": 46888,
     "joinTime": 1780250263428,
     "leaveTime": 1780250310316
+  },
+  {
+    "username": "asd",
+    "charType": "goop",
+    "duration": 428540,
+    "joinTime": 1780250683289,
+    "leaveTime": 1780251111829
+  },
+  {
+    "username": "ASD",
+    "charType": "goop",
+    "duration": 45822,
+    "joinTime": 1780251113494,
+    "leaveTime": 1780251159316
   }
 ]
