@@ -1999,38 +1999,60 @@
                 if (isMoving) {
 
                     var bSpeed = isSprinting ? boatState.boatSprintSpeed : boatState.boatSpeed;
-                    var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
-                    direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
 
-                    // Rotate boat to face movement direction (always allowed)
-                    var targetYaw = Math.atan2(direction.x, direction.z);
-                    var diff = targetYaw - boat.rotation.y;
-                    while (diff < -Math.PI) diff += Math.PI * 2;
-                    while (diff > Math.PI) diff -= Math.PI * 2;
-                    boat.rotation.y += diff * 4 * delta;
+                    // --- VEHICLE-STYLE CONTROLS ---
+                    // A/D = steer (rotate), W/S = throttle along boat's forward axis
+                    var steer = (keys['KeyA'] ? 1 : 0) - (keys['KeyD'] ? 1 : 0);
+                    var throttle = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
 
-                    // Calculate next position
-                    var nextX = boat.position.x + direction.x * bSpeed * delta;
-                    var nextZ = boat.position.z + direction.z * bSpeed * delta;
-                    
-                    // Bounding box terrain sampling for robust shoreline collision
-                    const w = 0.5, l = 1.3;
-                    const pts = [
-                        new THREE.Vector3(0, 0, 0),
-                        new THREE.Vector3(w, 0, l),
-                        new THREE.Vector3(-w, 0, l),
-                        new THREE.Vector3(w, 0, -l),
-                        new THREE.Vector3(-w, 0, -l)
-                    ];
-                    let canMove = true;
-                    for (let pt of pts) {
-                        pt.applyAxisAngle(new THREE.Vector3(0, 1, 0), boat.rotation.y);
-                        // Water is at -1.2, so anything above -1.3 is considered shallow/shore
-                        if (getTerrainHeight(nextX + pt.x, nextZ + pt.z) > -1.3) {
-                            canMove = false;
-                            break;
-                        }
+                    // Mobile joystick: map X to steer, Z to throttle
+                    if (!steer && joystickMoveX) steer = joystickMoveX;
+                    if (!throttle && joystickMoveZ) throttle = joystickMoveZ;
+
+                    // Steer: rotate the boat (only when throttle is applied for natural feel)
+                    var steerSpeed = 2.5;
+                    if (Math.abs(throttle) > 0.1) {
+                        boat.rotation.y += steer * steerSpeed * delta;
+                    } else {
+                        // Allow turning in place at reduced speed
+                        boat.rotation.y += steer * steerSpeed * 0.5 * delta;
                     }
+
+                    // Drive along boat's forward direction
+                    var forward = new THREE.Vector3(
+                        -Math.sin(boat.rotation.y),
+                        0,
+                        -Math.cos(boat.rotation.y)
+                    );
+                    var nextX = boat.position.x + forward.x * throttle * bSpeed * delta;
+                    var nextZ = boat.position.z + forward.z * throttle * bSpeed * delta;
+                    
+                    // --- SMART SHORE COLLISION ---
+                    // Sample terrain at hull points to detect land
+                    const w = 0.5, l = 1.3;
+                    const hullOffsets = [
+                        [0, 0], [w, l], [-w, l], [w, -l], [-w, -l]
+                    ];
+                    var cosR = Math.cos(boat.rotation.y), sinR = Math.sin(boat.rotation.y);
+
+                    // Get average terrain height at current and next position
+                    var currDepthSum = 0, nextDepthSum = 0;
+                    var nextOnLand = false;
+                    for (var hi = 0; hi < hullOffsets.length; hi++) {
+                        var ox = hullOffsets[hi][0], oz = hullOffsets[hi][1];
+                        var rx = ox * cosR - oz * sinR;
+                        var rz = ox * sinR + oz * cosR;
+                        currDepthSum += getTerrainHeight(boat.position.x + rx, boat.position.z + rz);
+                        var nh = getTerrainHeight(nextX + rx, nextZ + rz);
+                        nextDepthSum += nh;
+                        if (nh > -1.3) nextOnLand = true;
+                    }
+                    var currAvg = currDepthSum / hullOffsets.length;
+                    var nextAvg = nextDepthSum / hullOffsets.length;
+
+                    // Allow movement if: heading to deeper water OR not touching land
+                    var headingDeeper = nextAvg < currAvg - 0.01;
+                    var canMove = !nextOnLand || headingDeeper;
 
                     if (canMove) {
                         boat.position.x = nextX;
