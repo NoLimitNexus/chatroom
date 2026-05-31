@@ -421,7 +421,7 @@ function instantiateObject(data) {
 const ENV_URLS = {
     local: 'http://localhost:3000',
     dev: 'http://192.168.132.132:3002',
-    live: 'https://chatroom.nolimitnexus.com'
+    live: 'https://play.nolimitnexus.com'
 };
 
 function saveMap() {

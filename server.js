@@ -30,9 +30,14 @@ const fs = require('fs');
 
 const publicPath = path.join(__dirname, 'public');
 
+// --- Shared API router (mounted on sub-apps that need it) ---
+const apiRouter = express.Router();
+apiRouter.use(express.json({ limit: '5mb' }));
+
 // --- Subdomain Apps ---
 // 1. Play (Game)
 const playApp = express();
+playApp.use('/api', apiRouter);  // Share API routes
 playApp.use(express.static(publicPath)); // defaults to index.html
 
 // 2. Studio / Editor
@@ -138,12 +143,13 @@ setInterval(() => {
     }
 }, 5000);
 
-app.get('/api/map', async (req, res) => {
+// --- API routes on shared router (accessible via vhost sub-apps AND main app) ---
+apiRouter.get('/map', async (req, res) => {
     res.json(mapData);
 });
 
 // Status endpoint for admin hub
-app.get('/api/status', (req, res) => {
+apiRouter.get('/status', (req, res) => {
     const mem = process.memoryUsage();
     res.json({
         uptime: process.uptime(),
@@ -164,7 +170,7 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-app.post('/api/map', (req, res) => {
+apiRouter.post('/map', (req, res) => {
     mapData = req.body;
     
     // Re-initialize spawn positions for all boats from the new map data
@@ -187,6 +193,9 @@ app.post('/api/map', (req, res) => {
     io.emit('mapUpdate', mapData); // Broadcast to all connected clients
     res.json({ success: true });
 });
+
+// Also mount apiRouter on the main app for localhost/IP access
+app.use('/api', apiRouter);
 
 // Sync map from production NAS — pulls latest and broadcasts to local clients
 const PROD_MAP_URL = 'https://play.nolimitnexus.com/api/map';
@@ -212,7 +221,7 @@ async function syncFromProd() {
 }
 
 // Manual sync endpoint
-app.get('/api/sync-from-prod', async (req, res) => {
+apiRouter.get('/sync-from-prod', async (req, res) => {
     await syncFromProd();
     res.json({ success: true, objects: mapData.objects?.length || 0 });
 });
