@@ -350,6 +350,27 @@
                 <div style="color:#475569; font-style:italic;">Loading...</div>
             </div>
 
+            <div class="section-title">Bot Controls</div>
+            <div style="margin-bottom: 12px; display:flex; align-items:center; justify-content:space-between;">
+                <label style="font-size:0.75rem; color:#94a3b8; cursor:pointer;" for="bot-enabled">Enable Bots</label>
+                <input type="checkbox" id="bot-enabled">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display:flex; justify-content:space-between; font-size:0.75rem; color:#94a3b8; margin-bottom:4px;">
+                    <span>Max Bots</span> <span id="bot-count-val">5</span>
+                </label>
+                <input type="range" id="bot-count" min="1" max="50" value="5" style="width:100%;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display:flex; justify-content:space-between; font-size:0.75rem; color:#94a3b8; margin-bottom:4px;">
+                    <span>Wander Radius</span> <span id="bot-radius-val">50m</span>
+                </label>
+                <input type="range" id="bot-radius" min="10" max="250" value="50" style="width:100%;">
+            </div>
+            <div class="action-row">
+                <button class="btn btn-success" id="btn-save-bots" style="width:100%">💾 Save Bot Config</button>
+            </div>
+
             <div class="section-title">Quick Actions</div>
             <div class="action-row">
                 <button class="btn btn-primary" id="btn-admin-refresh" style="width:100%">↻ Refresh Data</button>
@@ -425,6 +446,6 @@
     <script src="ripples.js?v=43"></script>
     <script src="campfire.js?v=43"></script>
     <script src="ObjectFactory.js?v=44"></script>
-    <script src="editor.js?v=44"></script>
+    <script src="editor.js?v=45"></script>
 </body>
 </html>

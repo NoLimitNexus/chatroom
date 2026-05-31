@@ -13,6 +13,7 @@ files_to_upload = [
     'package.json',
     'package-lock.json',
     'server.js',
+    'BotManager.js',
     'data/map.json',
     'public/client.js',
     'public/index.html',

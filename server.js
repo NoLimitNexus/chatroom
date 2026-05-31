@@ -304,6 +304,8 @@ setInterval(() => {
 
 // Store player state
 const players = {};
+const BotManager = require('./BotManager');
+const botManager = new BotManager(io, players, () => mapData);
 
 // Store global dropped items
 const ITEMS_FILE = path.join(DATA_DIR, 'droppedItems.json');
