@@ -38,7 +38,16 @@ orbitControls.maxDistance = 200;
 const transformControl = new THREE.TransformControls(camera, renderer.domElement);
 transformControl.addEventListener('dragging-changed', function(event) {
     orbitControls.enabled = !event.value;
-    if (!event.value) saveMap();
+    if (!event.value) {
+        if (selectedObject) {
+            selectedObject.userData.spawnPos = { 
+                x: selectedObject.position.x, 
+                y: selectedObject.position.y, 
+                z: selectedObject.position.z 
+            };
+        }
+        saveMap();
+    }
 });
 scene.add(transformControl);
 
@@ -397,6 +406,9 @@ function instantiateObject(data) {
         mesh.userData.id = data.id || 'obj_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
         mesh.userData.tags = data.tags || [];
         mesh.userData.name = data.name || '';
+        if (data.position) {
+            mesh.userData.spawnPos = { x: data.position.x, y: data.position.y, z: data.position.z };
+        }
         scene.add(mesh);
         environmentObjects.push(mesh);
         if (updatable) updatables.push(updatable);
@@ -427,9 +439,9 @@ function saveMap() {
                 name: obj.userData.name || '',
                 tags: obj.userData.tags || [],
                 position: { 
-                    x: obj.position.x, 
-                    y: isBoat ? -1.2 : obj.position.y, 
-                    z: obj.position.z 
+                    x: obj.userData.spawnPos ? obj.userData.spawnPos.x : obj.position.x, 
+                    y: isBoat ? -1.2 : (obj.userData.spawnPos ? obj.userData.spawnPos.y : obj.position.y), 
+                    z: obj.userData.spawnPos ? obj.userData.spawnPos.z : obj.position.z 
                 },
                 rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z },
                 scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z }
@@ -553,6 +565,9 @@ document.getElementById('btn-snap-ground').addEventListener('click', () => {
     if (!selectedObject) return;
     selectedObject.position.y = window.getSharedTerrainHeight
         ? window.getSharedTerrainHeight(selectedObject.position.x, selectedObject.position.z) : 0;
+    if (selectedObject.userData.spawnPos) {
+        selectedObject.userData.spawnPos.y = selectedObject.position.y;
+    }
     saveMap();
 });
 
