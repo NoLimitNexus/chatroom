@@ -50,8 +50,8 @@ function reinitBoatStates() {
         mapData.objects.forEach(obj => {
             if (obj.type === 'Boat') {
                 boatStates[obj.id] = {
-                    spawnPos: { ...obj.position },
-                    spawnRot: obj.rotation ? obj.rotation.y : 0,
+                    spawnPos: obj.spawnPos ? { ...obj.spawnPos } : { ...obj.position },
+                    spawnRot: obj.spawnRot !== undefined ? obj.spawnRot : (obj.rotation ? obj.rotation.y : 0),
                     lastOccupiedTime: Date.now(),
                     returning: false
                 };
@@ -129,8 +129,8 @@ app.post('/api/map', (req, res) => {
         mapData.objects.forEach(obj => {
             if (obj.type === 'Boat') {
                 boatStates[obj.id] = {
-                    spawnPos: { ...obj.position },
-                    spawnRot: obj.rotation ? obj.rotation.y : 0,
+                    spawnPos: obj.spawnPos ? { ...obj.spawnPos } : { ...obj.position },
+                    spawnRot: obj.spawnRot !== undefined ? obj.spawnRot : (obj.rotation ? obj.rotation.y : 0),
                     lastOccupiedTime: Date.now(),
                     returning: false
                 };

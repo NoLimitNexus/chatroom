@@ -45,6 +45,7 @@ transformControl.addEventListener('dragging-changed', function(event) {
                 y: selectedObject.position.y, 
                 z: selectedObject.position.z 
             };
+            selectedObject.userData.spawnRot = selectedObject.rotation.y;
         }
         saveMap();
     }
@@ -406,9 +407,8 @@ function instantiateObject(data) {
         mesh.userData.id = data.id || 'obj_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
         mesh.userData.tags = data.tags || [];
         mesh.userData.name = data.name || '';
-        if (data.position) {
-            mesh.userData.spawnPos = { x: data.position.x, y: data.position.y, z: data.position.z };
-        }
+        mesh.userData.spawnPos = data.spawnPos ? { ...data.spawnPos } : (data.position ? { ...data.position } : { x: 0, y: 0, z: 0 });
+        mesh.userData.spawnRot = data.spawnRot !== undefined ? data.spawnRot : (data.rotation ? data.rotation.y : 0);
         scene.add(mesh);
         environmentObjects.push(mesh);
         if (updatable) updatables.push(updatable);
@@ -439,12 +439,10 @@ function saveMap() {
                 type: obj.userData.type,
                 name: obj.userData.name || '',
                 tags: obj.userData.tags || [],
-                position: { 
-                    x: obj.userData.spawnPos ? obj.userData.spawnPos.x : obj.position.x, 
-                    y: isBoat ? -1.2 : (obj.userData.spawnPos ? obj.userData.spawnPos.y : obj.position.y), 
-                    z: obj.userData.spawnPos ? obj.userData.spawnPos.z : obj.position.z 
-                },
-                rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z },
+                position: obj.userData.spawnPos ? { ...obj.userData.spawnPos } : { x: obj.position.x, y: isBoat ? -1.2 : obj.position.y, z: obj.position.z },
+                rotation: { x: obj.rotation.x, y: obj.userData.spawnRot !== undefined ? obj.userData.spawnRot : obj.rotation.y, z: obj.rotation.z },
+                spawnPos: obj.userData.spawnPos ? { ...obj.userData.spawnPos } : { x: obj.position.x, y: isBoat ? -1.2 : obj.position.y, z: obj.position.z },
+                spawnRot: obj.userData.spawnRot !== undefined ? obj.userData.spawnRot : obj.rotation.y,
                 scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z }
             };
         })

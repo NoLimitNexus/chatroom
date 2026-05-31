@@ -1,5 +1,5 @@
 {
-  "totalConnections": 22,
+  "totalConnections": 23,
   "uniqueUsers": {
     "1": 4,
     "2": 4,
@@ -11,6 +11,7 @@
     "wer": 1,
     "asdasd": 1,
     "S": 1,
-    "ASDAS": 1
+    "ASDAS": 1,
+    "as": 1
   }
 }
