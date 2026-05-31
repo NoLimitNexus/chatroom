@@ -2116,18 +2116,16 @@
                     var direction = new THREE.Vector3(moveX, 0, moveZ).normalize();
                     direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), state.camYaw);
 
-                    // Rotate boat to face movement direction (fast snap)
-                    var targetYaw = Math.atan2(direction.x, direction.z);
+                    // Rotate boat to face movement direction (fast snap, fix backward driving with + PI)
+                    var targetYaw = Math.atan2(direction.x, direction.z) + Math.PI;
                     var diff = targetYaw - boat.rotation.y;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
                     boat.rotation.y += diff * 15 * delta;
 
-                    // Move along boat's CURRENT heading so it never crabs sideways
-                    var headX = Math.sin(boat.rotation.y);
-                    var headZ = Math.cos(boat.rotation.y);
-                    var nextX = boat.position.x + headX * bSpeed * delta;
-                    var nextZ = boat.position.z + headZ * bSpeed * delta;
+                    // Move along movement direction
+                    var nextX = boat.position.x + direction.x * bSpeed * delta;
+                    var nextZ = boat.position.z + direction.z * bSpeed * delta;
                     
                     // --- SMART SHORE COLLISION ---
                     // Sample terrain at hull points to detect land
