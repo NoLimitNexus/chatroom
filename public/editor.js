@@ -39,6 +39,14 @@ const transformControl = new THREE.TransformControls(camera, renderer.domElement
 transformControl.addEventListener('dragging-changed', function(event) {
     orbitControls.enabled = !event.value;
     if (!event.value) {
+        if (selectedObject && transformControl.mode === 'translate') {
+            // Auto-snap Y: boats to water level, others to terrain
+            if (selectedObject.userData.type === 'Boat') {
+                selectedObject.position.y = -1.2;
+            } else if (window.getTerrainHeight) {
+                selectedObject.position.y = window.getTerrainHeight(selectedObject.position.x, selectedObject.position.z);
+            }
+        }
         if (selectedObject) {
             selectedObject.userData.spawnPos = { 
                 x: selectedObject.position.x, 
@@ -50,6 +58,9 @@ transformControl.addEventListener('dragging-changed', function(event) {
         saveMap();
     }
 });
+transformControl.setSize(1.2); // Slightly larger gizmo for easier grabbing
+// Lock Y axis on translate by default — objects should stay on their plane
+transformControl.showY = false;
 scene.add(transformControl);
 
 // Shared Environment (terrain, water, sky, clouds)
@@ -532,16 +543,25 @@ function selectObject(obj) {
 // ============================================================
 document.getElementById('btn-translate').addEventListener('click', (e) => {
     transformControl.setMode('translate');
+    transformControl.showX = true;
+    transformControl.showY = false;  // No vertical dragging
+    transformControl.showZ = true;
     document.querySelectorAll('.transform-modes .btn').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
 });
 document.getElementById('btn-rotate').addEventListener('click', (e) => {
     transformControl.setMode('rotate');
+    transformControl.showX = false;
+    transformControl.showY = true;   // Only yaw rotation
+    transformControl.showZ = false;
     document.querySelectorAll('.transform-modes .btn').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
 });
 document.getElementById('btn-scale').addEventListener('click', (e) => {
     transformControl.setMode('scale');
+    transformControl.showX = true;
+    transformControl.showY = true;
+    transformControl.showZ = true;
     document.querySelectorAll('.transform-modes .btn').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
 });
